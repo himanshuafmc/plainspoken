@@ -1,0 +1,35 @@
+{
+  "candidates": [
+    {
+      "content": {
+        "parts": [
+          {
+            "text": "So, please add milk, eggs, and bread to the shopping list. The total is 2,500 rupees.",
+            "thoughtSignature": "EmAKXgFpFH0TH8j7hJmGA2w+Wu0zEjm316PrAjCosHo/FVKXvuzkdC6pJ3yNeK82003VzVCtxnV1YG1MSKvr26XebLFcW7eoKlx1R8CR880rwjU6MgpBNRDelA2kVQyWfKE="
+          }
+        ],
+        "role": "model"
+      },
+      "finishReason": "STOP",
+      "index": 0
+    }
+  ],
+  "usageMetadata": {
+    "promptTokenCount": 236,
+    "candidatesTokenCount": 26,
+    "totalTokenCount": 262,
+    "promptTokensDetails": [
+      {
+        "modality": "TEXT",
+        "tokenCount": 22
+      },
+      {
+        "modality": "AUDIO",
+        "tokenCount": 214
+      }
+    ],
+    "serviceTier": "standard"
+  },
+  "modelVersion": "gemini-3.5-flash-lite",
+  "responseId": "tnS8arzCAvLUjMcP7YetkQk"
+}
