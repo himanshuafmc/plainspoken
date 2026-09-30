@@ -6,7 +6,7 @@ The releases bundle the following third-party components, each under its own lic
 
 # Windows app
 
-## NAudio (NAudio.Core, NAudio.Wasapi 2.2.1)
+## NAudio (NAudio.Core, NAudio.Wasapi 2.4.0)
 
 Microphone capture. https://github.com/naudio/NAudio
 

@@ -24,7 +24,7 @@ Windows 10/11 x64 · C# / .NET 10 · WinForms · NAudio for capture · P/Invoke 
 - An opt-in console tool, `windows/tools/Plainspoken.Smoke`, runs the live smoke test. It never runs in CI (CI has no key and must never have one).
 
 ## Dependencies
-- **NAudio.Wasapi 2.2.1** (MIT, GPL-compatible), pinned to the mature 2.x line.
+- **NAudio.Wasapi 2.4** (MIT, GPL-compatible), pinned to the mature 2.x line.
 - DPAPI comes from the .NET 10 Windows Desktop framework; no package needed.
 - Test-only: xUnit 2.9, Microsoft.NET.Test.Sdk. Nothing else.
 
