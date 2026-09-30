@@ -1,0 +1,21 @@
+{
+  "schemaVersion": 1,
+  "transcription": {
+    "engine": "transcribe",
+    "transcribeModel": "gemini-3.5-transcribe",
+    "generateModel": "gemini-3.5-flash-lite",
+    "apiBaseUrl": "https://generativelanguage.googleapis.com",
+    "requestTimeoutSeconds": 90,
+    "languages": "english",
+    "mode": "verbatim",
+    "useBackupEngineWhenLimited": false,
+    "customVocabulary": ["WhatsApp", "Plainspoken", "Hinglish"],
+    "liveStreaming": true,
+    "liveModel": "gemini-3.5-transcribe-live"
+  },
+  "recording": { "maxSeconds": 300, "sounds": false },
+  "insertion": { "method": "type", "trailingSpace": false },
+  "history": { "enabled": false },
+  "hotkey": "Ctrl+Shift+D",
+  "showMiniButton": false
+}

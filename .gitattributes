@@ -2,3 +2,6 @@
 *.sln text eol=crlf
 *.ico binary
 *.wav binary
+*.jar binary
+*.png binary
+*.bat text eol=crlf

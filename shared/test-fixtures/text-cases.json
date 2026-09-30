@@ -1,0 +1,275 @@
+{
+  "_comment": "Shared by the Windows (C#) and Android (Kotlin) tests so both apps join and space text the same way. See docs/SPEC.md 4.1b and 5.",
+  "join": [
+    {
+      "pieces": [
+        "Please add milk,",
+        "eggs and",
+        "bread.",
+        "The total is",
+        "2,500 rupees."
+      ],
+      "expected": "Please add milk, eggs and bread. The total is 2,500 rupees.",
+      "note": "trimmed phrases"
+    },
+    {
+      "pieces": [
+        "I will call you tomorrow",
+        "morning.",
+        "Please wait."
+      ],
+      "expected": "I will call you tomorrow morning. Please wait.",
+      "note": "trimmed phrases"
+    },
+    {
+      "pieces": [
+        "The",
+        " trans",
+        "cription",
+        " is",
+        " ready",
+        "."
+      ],
+      "expected": "The transcription is ready.",
+      "note": "tokens carry their own spaces"
+    },
+    {
+      "pieces": [
+        "Hello ",
+        "world, ",
+        "how are ",
+        "you?"
+      ],
+      "expected": "Hello world, how are you?",
+      "note": "trailing spaces"
+    },
+    {
+      "pieces": [
+        "It",
+        " is",
+        " done.",
+        "Next",
+        " one."
+      ],
+      "expected": "It is done. Next one.",
+      "note": "missing space after a sentence in a token stream"
+    },
+    {
+      "pieces": [
+        "Ok",
+        "ay",
+        "."
+      ],
+      "expected": "Okay.",
+      "note": "single-word tokens"
+    },
+    {
+      "pieces": [
+        "Whats",
+        "App"
+      ],
+      "expected": "WhatsApp",
+      "note": "single-word tokens"
+    },
+    {
+      "pieces": [
+        "The price is 2.",
+        "5 lakh rupees"
+      ],
+      "expected": "The price is 2.5 lakh rupees",
+      "note": "decimal"
+    },
+    {
+      "pieces": [
+        "Meet at 10:",
+        "30 AM"
+      ],
+      "expected": "Meet at 10:30 AM",
+      "note": "time"
+    },
+    {
+      "pieces": [
+        "It costs 1,",
+        "000 rupees"
+      ],
+      "expected": "It costs 1,000 rupees",
+      "note": "thousands"
+    },
+    {
+      "pieces": [
+        "See you at 10 a.",
+        "m. sharp"
+      ],
+      "expected": "See you at 10 a.m. sharp",
+      "note": "letter abbreviation"
+    },
+    {
+      "pieces": [
+        "Open www.",
+        "example.com now"
+      ],
+      "expected": "Open www.example.com now",
+      "note": "web address"
+    },
+    {
+      "pieces": [
+        "Mail me at name@example.",
+        "com today"
+      ],
+      "expected": "Mail me at name@example.com today",
+      "note": "email"
+    },
+    {
+      "pieces": [
+        "Open https:",
+        "//example.com"
+      ],
+      "expected": "Open https://example.com",
+      "note": "URL scheme"
+    },
+    {
+      "pieces": [
+        "It is well-",
+        "known now"
+      ],
+      "expected": "It is well-known now",
+      "note": "hyphen"
+    },
+    {
+      "pieces": [
+        "He said \"",
+        "hello\" to me"
+      ],
+      "expected": "He said \"hello\" to me",
+      "note": "opening quote"
+    },
+    {
+      "pieces": [
+        "He said",
+        "\"hello\" to me"
+      ],
+      "expected": "He said \"hello\" to me",
+      "note": "quote starts a word"
+    },
+    {
+      "pieces": [
+        "Is it ready",
+        "? Yes it is"
+      ],
+      "expected": "Is it ready? Yes it is",
+      "note": "closing punctuation"
+    },
+    {
+      "pieces": [
+        "Call Ravi (",
+        "my friend) now"
+      ],
+      "expected": "Call Ravi (my friend) now",
+      "note": "bracket"
+    },
+    {
+      "pieces": [
+        "It is done",
+        "'s fine now"
+      ],
+      "expected": "It is done's fine now",
+      "note": "apostrophe"
+    },
+    {
+      "pieces": [
+        "Kal meeting hai.",
+        "Please aana"
+      ],
+      "expected": "Kal meeting hai. Please aana",
+      "note": "Hinglish"
+    },
+    {
+      "pieces": [
+        "मुझे कल जाना है।",
+        "फिर आऊँगा"
+      ],
+      "expected": "मुझे कल जाना है। फिर आऊँगा",
+      "note": "danda"
+    },
+    {
+      "pieces": [
+        "मुझे कल जाना",
+        "है अभी"
+      ],
+      "expected": "मुझे कल जाना है अभी",
+      "note": "Devanagari phrases"
+    },
+    {
+      "pieces": [
+        "कल सुबह ज",
+        "ाना है"
+      ],
+      "expected": "कल सुबह जाना है",
+      "note": "combining mark"
+    },
+    {
+      "pieces": [
+        "See you",
+        "",
+        "tomorrow.",
+        "Bye."
+      ],
+      "expected": "See you tomorrow. Bye.",
+      "note": "empty piece"
+    }
+  ],
+  "spacing": [
+    {
+      "input": "See you tomorrow.Please call me.",
+      "expected": "See you tomorrow. Please call me."
+    },
+    {
+      "input": "Really?Yes!Great.",
+      "expected": "Really? Yes! Great."
+    },
+    {
+      "input": "Milk,eggs and bread",
+      "expected": "Milk, eggs and bread"
+    },
+    {
+      "input": "Note:Please bring the file.",
+      "expected": "Note: Please bring the file."
+    },
+    {
+      "input": "मुझे कल जाना है।फिर आऊँगा",
+      "expected": "मुझे कल जाना है। फिर आऊँगा"
+    },
+    {
+      "input": "Kal jana hai.मैं आऊँगा",
+      "expected": "Kal jana hai. मैं आऊँगा"
+    },
+    {
+      "input": "It costs ₹2,500 or 2.5 lakh at 10:30 AM.",
+      "expected": "It costs ₹2,500 or 2.5 lakh at 10:30 AM."
+    },
+    {
+      "input": "Made in the U.S.A. at 10 a.m. e.g. today",
+      "expected": "Made in the U.S.A. at 10 a.m. e.g. today"
+    },
+    {
+      "input": "Open www.Example.com or https://Example.com",
+      "expected": "Open www.Example.com or https://Example.com"
+    },
+    {
+      "input": "Write to name@Example.com",
+      "expected": "Write to name@Example.com"
+    },
+    {
+      "input": "Use Node.js and ASP.NET",
+      "expected": "Use Node.js and ASP.NET"
+    },
+    {
+      "input": "1.First item",
+      "expected": "1.First item"
+    },
+    {
+      "input": "Already fine. Nothing to do.",
+      "expected": "Already fine. Nothing to do."
+    }
+  ]
+}
