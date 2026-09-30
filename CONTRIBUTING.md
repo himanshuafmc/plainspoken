@@ -54,6 +54,11 @@ GEMINI_API_KEY=... dotnet run --project windows/tools/Plainspoken.Smoke -- --eng
 
 By contributing you agree that your contribution is licensed under the [GNU GPL v3.0](LICENSE), like the rest of the project.
 
+## Weekly maintenance (maintainers)
+
+A weekly Claude Code run checks both apps, the Gemini API and bug reports labelled `claude-fix`, and proposes fixes
+and releases as pull requests. See [docs/MAINTENANCE.md](docs/MAINTENANCE.md).
+
 ## Releases (maintainers)
 
 Both apps always share one version number and one release.
