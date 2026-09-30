@@ -1,0 +1,15 @@
+Plainspoken - free, open-source voice typing for Windows
+========================================================
+
+1. Unzip this folder somewhere permanent, for example Documents\Plainspoken.
+2. Double-click Plainspoken.exe.
+3. If Windows shows "Windows protected your PC", click "More info", then "Run anyway".
+   This appears because the app is not code-signed (signing certificates cost money).
+   The full source code is public: https://github.com/himanshuafmc/plainspoken
+4. Follow the welcome window: get a free Gemini API key, paste it, done.
+5. Click where you want to type, press Ctrl+Alt+Space, speak, press Ctrl+Alt+Space again.
+
+Plainspoken lives in the system tray (bottom-right, near the clock; click ^ if you don't see it).
+Right-click the tray icon for Settings, recent transcripts and Retry.
+
+Licence: GNU GPL v3.0 (see LICENSE). Third-party notices: THIRD-PARTY-NOTICES.md.
