@@ -507,8 +507,9 @@ internal sealed class GeminiLiveSession : ILiveSession
 
         Volatile.Write(ref endSent, true);
         await receive.ConfigureAwait(false);
-        Log.Info($"live: finished, {transcript.Text.Length} chars ({transcript.Messages} messages)");
-        return transcript.Text;
+        var text = transcript.Finish();
+        Log.Info($"live: finished, {text.Length} chars ({transcript.Messages} messages)");
+        return text;
     }
 
     private static async Task SendAudioAsync(ILiveSocket socket, List<short> buffer, CancellationToken ct)
@@ -546,17 +547,24 @@ internal sealed class GeminiLiveSession : ILiveSession
 internal sealed class LiveTranscript
 {
     private readonly ILog _log;
-    private readonly StringBuilder _model = new();
-    private readonly StringBuilder _input = new();
+    private readonly List<string> _model = [];
+    private readonly List<string> _input = [];
     private readonly HashSet<string> _loggedShapes = new(StringComparer.Ordinal);
 
     public LiveTranscript(ILog log) => _log = log;
 
     public int Messages { get; private set; }
 
-    public bool HasText => _model.Length > 0 || _input.Length > 0;
+    public bool HasText => _model.Count > 0 || _input.Count > 0;
 
-    public string Text => (_model.Length > 0 ? _model : _input).ToString().Trim();
+    /// <summary>The joined transcript (model text preferred); logs how the pieces arrived, never the text.</summary>
+    public string Finish()
+    {
+        var (pieces, source) = _model.Count > 0 ? (_model, "model") : (_input, "input transcription");
+        var text = TranscriptJoiner.Join(pieces, out var stats).Trim();
+        _log.Info($"live: {source} text in {stats}");
+        return text;
+    }
 
     public static bool IsSetupComplete(string message)
     {
@@ -632,7 +640,7 @@ internal sealed class LiveTranscript
                             !(part.TryGetProperty("thought", out var th) && th.ValueKind == JsonValueKind.True) &&
                             part.TryGetProperty("text", out var text) && text.ValueKind == JsonValueKind.String)
                         {
-                            _model.Append(text.GetString());
+                            Add(_model, text.GetString());
                         }
                     }
                 }
@@ -647,12 +655,20 @@ internal sealed class LiveTranscript
         }
     }
 
-    private static void AppendText(JsonElement parent, string name, StringBuilder target)
+    private static void AppendText(JsonElement parent, string name, List<string> target)
     {
         if (parent.TryGetProperty(name, out var obj) && obj.ValueKind == JsonValueKind.Object &&
             obj.TryGetProperty("text", out var text) && text.ValueKind == JsonValueKind.String)
         {
-            target.Append(text.GetString());
+            Add(target, text.GetString());
+        }
+    }
+
+    private static void Add(List<string> target, string? piece)
+    {
+        if (!string.IsNullOrEmpty(piece))
+        {
+            target.Add(piece);
         }
     }
 

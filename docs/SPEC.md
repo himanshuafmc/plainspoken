@@ -116,7 +116,7 @@ Verified response (HTTP 200):
 }
 ```
 
-- There is **no** top-level `output_text` in the REST JSON (that is an SDK convenience). The transcript is the concatenation of every `content[].text` where `content[].type == "text"` inside `steps[]` with `type == "model_output"`.
+- There is **no** top-level `output_text` in the REST JSON (that is an SDK convenience). The transcript is every `content[].text` where `content[].type == "text"` inside `steps[]` with `type == "model_output"`, joined as in 4.1b.
 - Parser tolerance (in order): top-level `output_text`/`outputText` string → `outputs[]` items of type `text` → `steps[]` as above (a step without `type` is accepted). Unknown fields are ignored.
 - If `status` is `in_progress`/`queued` and an `id` is present, poll `GET {base}/v1beta/interactions/{id}` every 1 s until the request timeout. `failed`/`cancelled` → error.
 - `status == "completed"` with empty text → treated as "Didn't catch that" (no error, audio deleted).
@@ -148,9 +148,17 @@ Setting `transcription.liveStreaming` (default `true`). Audio is streamed while 
   4. `{"model":…}`
   An API version whose handshake fails is skipped. A close reason mentioning the API key or quota stops immediately.
 - Audio: `{"realtimeInput":{"audio":{"data":"<base64 PCM16LE>","mimeType":"audio/pcm;rate=16000"}}}` every 100 ms; end with `{"realtimeInput":{"audioStreamEnd":true}}`.
-- Text: `serverContent.modelTurn.parts[].text` (preferred, skipping `thought` parts), else concatenated `serverContent.inputTranscription.text` chunks. Done on `turnComplete`/`generationComplete`, on close, or 1.5 s of silence after the end of audio if some text has arrived. Overall limit 8 s + audio length/10 (max 30 s).
+- Text: `serverContent.modelTurn.parts[].text` (preferred, skipping `thought` parts), else the `serverContent.inputTranscription.text` chunks, joined as in 4.1b. Done on `turnComplete`/`generationComplete`, on close, or 1.5 s of silence after the end of audio if some text has arrived. Overall limit 8 s + audio length/10 (max 30 s).
 - The log records every distinct server message *shape* (never text) and every rejected setup with its close reason, for diagnosis.
 - After 2 failed dictations in a row (error, timeout or no text; cancelled ones don't count) live streaming pauses for 15 minutes and dictation goes straight to the normal engine. Changing the key, live model or API address ends the pause. This stops a network that blocks WebSockets from adding the live timeout to every dictation.
+
+### 4.1b Joining transcript pieces
+
+Text that arrives in pieces (live chunks, several text items in one response) is not always cut at a space: one stream sends trimmed phrases ("tomorrow" + "morning.", "done." + "Next"), another sub-word tokens that carry their own spaces (" trans" + "cription"). Pasting them together blindly was the v0.1.0 "missing spaces" bug. At each boundary:
+1. whitespace already at the boundary is kept; nothing is added before closing punctuation (`. , ! ? ; : … ) ] } ” ’ ' % । ॥`) or a combining mark, or after an opening bracket, opening quote, hyphen, dash or `/`; a straight `"` counts as opening or closing by how many came before;
+2. after `. , ! ? ; : … । ॥` a space is added before a letter, digit or opening bracket/quote, except inside numbers (`2.5`, `2,500`, `10:30`), in web/email addresses (word contains `@`, `://` or starts with `www.`), and after `. ! ? …` before a lower-case letter when the pieces are tokens or the word so far is a single-letter abbreviation (`a.`, `e.g.`);
+3. between two word characters a space is added only when the pieces are trimmed phrases: no piece carries its own boundary space and at least one piece has several words. Otherwise they are joined as they are (a word split into tokens).
+The log records how the pieces arrived (counts only, never text).
 
 ### 4.2 Engine "generate" (fallback): Flash-Lite via generateContent
 
@@ -209,7 +217,7 @@ Google resets the free daily quota at midnight Pacific time. Compute the next mi
 
 ## 5. Text insertion
 
-- Transcript post-processing: trim; normalise line endings; append one space if `insertion.trailingSpace` (default on) and the text doesn't already end with whitespace.
+- Transcript post-processing: trim; normalise line endings; add a missing space after punctuation (`.!?…` between a lower-case/caseless letter and a capital/caseless letter, `,;` between letters, `:` before a capital, `।॥` before a letter; words with `@`, `://` or `www.` untouched); append one space if `insertion.trailingSpace` (default on) and the text doesn't already end with whitespace.
 - Always add to history first (if enabled).
 - Method `paste` (default): save clipboard → set transcript → send paste shortcut → wait 250 ms → restore the saved clipboard (only if the clipboard still holds our text). Clipboard access is retried (10 × 50 ms). [Windows] The transcript is marked to be excluded from clipboard history / cloud clipboard.
 - Method `type`: send the text as Unicode key events; line breaks are sent as Shift+Enter (so chat apps don't send the message).

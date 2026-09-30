@@ -1,8 +1,13 @@
+using System.Text.RegularExpressions;
+
 namespace Plainspoken.Core.Dictation;
 
-public static class TextPostProcessor
+public static partial class TextPostProcessor
 {
-    /// <summary>Trims, normalises line endings to \n and removes stray code fences/quotes around the whole text.</summary>
+    /// <summary>
+    /// Trims, normalises line endings to \n, removes stray code fences/quotes around the whole text and adds a
+    /// missing space after punctuation (see <see cref="FixSpaceAfterPunctuation"/>).
+    /// </summary>
     public static string Clean(string? raw)
     {
         if (string.IsNullOrWhiteSpace(raw))
@@ -28,7 +33,41 @@ public static class TextPostProcessor
             text = text[1..^1].Trim();
         }
 
-        return text;
+        return FixSpaceAfterPunctuation(text);
+    }
+
+    /// <summary>
+    /// Adds the space that is sometimes missing after punctuation ("tomorrow.Please" → "tomorrow. Please"):
+    /// after . ! ? … between a lower-case or caseless letter and a capital or caseless letter; after , ; between
+    /// letters; after : before a capital; after । or ॥ before a letter. Numbers (2.5, 2,500, 10:30), abbreviations
+    /// such as U.S.A. or a.m., and words containing @, :// or www. are left alone.
+    /// </summary>
+    public static string FixSpaceAfterPunctuation(string text)
+    {
+        ArgumentNullException.ThrowIfNull(text);
+        return MissingSpace().Replace(text, m => InAddress(text, m.Index) ? m.Value : m.Value + " ");
+    }
+
+    [GeneratedRegex(@"(?<=[\p{Ll}\p{Lo}\p{M}])[.!?…](?=[\p{Lu}\p{Lo}])|(?<=[\p{L}\p{M}])[,;](?=\p{L})|(?<=[\p{Ll}\p{Lo}\p{M}]):(?=[\p{Lu}\p{Lo}])|[।॥](?=\p{L})")]
+    private static partial Regex MissingSpace();
+
+    private static bool InAddress(string text, int index)
+    {
+        var start = index;
+        while (start > 0 && !char.IsWhiteSpace(text[start - 1]))
+        {
+            start--;
+        }
+
+        var end = index;
+        while (end < text.Length && !char.IsWhiteSpace(text[end]))
+        {
+            end++;
+        }
+
+        var word = text.AsSpan(start, end - start);
+        return word.Contains('@') || word.Contains("://", StringComparison.Ordinal) ||
+               word.StartsWith("www.", StringComparison.OrdinalIgnoreCase);
     }
 
     public static string ForInsertion(string cleaned, bool trailingSpace)

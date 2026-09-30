@@ -2,6 +2,11 @@
 
 All notable changes to Plainspoken. Versions follow [Semantic Versioning](https://semver.org/).
 
+## [0.1.1] - 2026-09-30
+
+### Fixed
+- **Missing spaces.** Words were sometimes stuck together ("tomorrowmorning"), and there was often no space after a full stop ("done.Next"). This happened because Google sends live text in pieces that don't always include their spaces. Plainspoken now puts the spaces back — between words, after full stops, question marks, commas and colons — without splitting numbers like 2.5 or 10:30, abbreviations like a.m., or web addresses.
+
 ## [0.1.0] - 2026-09-30
 
 The first public release. 🎉
@@ -21,4 +26,5 @@ The first public release. 🎉
 - Windows may show "Windows protected your PC" the first time: click More info → Run anyway. The app isn't code-signed yet.
 - Windows 10/11, 64-bit. No installer; unzip and run.
 
+[0.1.1]: https://github.com/himanshuafmc/plainspoken/releases/tag/v0.1.1
 [0.1.0]: https://github.com/himanshuafmc/plainspoken/releases/tag/v0.1.0

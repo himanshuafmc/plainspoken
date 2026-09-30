@@ -28,6 +28,8 @@ Hindi — *"मुझे कल सुबह दस बजे अस्पता
 | WhatsApp Desktop (chat box) | [ ] | [ ] | [ ] |
 | Outlook (new email) | [ ] | [ ] | [ ] |
 
+Also dictate two or three sentences with short pauses in between (e.g. *"I will call you tomorrow … morning. Please wait."*): [ ] every word is separated by a space, [ ] there is a space after each full stop.
+
 For each: [ ] text appears at the cursor, [ ] "um" removed and punctuation added, [ ] a space is added after the text,
 [ ] whatever was on the clipboard before is still there afterwards (paste with Ctrl+V somewhere to check).
 

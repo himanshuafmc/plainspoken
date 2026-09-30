@@ -4,7 +4,7 @@
     To release: bump <VersionPrefix>, push, then tag v<VersionPrefix>.
   -->
   <PropertyGroup>
-    <VersionPrefix>0.1.0</VersionPrefix>
+    <VersionPrefix>0.1.1</VersionPrefix>
     <!-- Working name. User-visible strings come from Plainspoken.Core.AppInfo.Name. -->
     <Product>Plainspoken</Product>
     <Company>Plainspoken contributors</Company>

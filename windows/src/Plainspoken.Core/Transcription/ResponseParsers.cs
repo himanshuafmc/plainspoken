@@ -31,7 +31,7 @@ public static class ResponseParsers
             }
         }
 
-        var sb = new StringBuilder();
+        var pieces = new List<string>();
         var found = false;
         var container = false;
 
@@ -39,7 +39,7 @@ public static class ResponseParsers
         if (root.TryGetProperty("outputs", out var outputs) && outputs.ValueKind == JsonValueKind.Array)
         {
             container = true;
-            found |= AppendTextItems(outputs, sb);
+            found |= AppendTextItems(outputs, pieces);
         }
 
         // 3. "steps": [{"type":"model_output","content":[{"type":"text","text":"…"}]}]
@@ -63,19 +63,20 @@ public static class ResponseParsers
                 {
                     if (step.TryGetProperty(name, out var content) && content.ValueKind == JsonValueKind.Array)
                     {
-                        found |= AppendTextItems(content, sb);
+                        found |= AppendTextItems(content, pieces);
                     }
                 }
 
                 if (GetString(step, "text") is { } stepText)
                 {
-                    sb.Append(stepText);
+                    pieces.Add(stepText);
                     found = true;
                 }
             }
         }
 
-        return new InteractionResult(id, status, found ? sb.ToString() : null, container);
+        // Several text items (e.g. one per spoken segment) may be trimmed, so join them with care.
+        return new InteractionResult(id, status, found ? TranscriptJoiner.Join(pieces) : null, container);
     }
 
     /// <summary>Returns the transcript, "" when the model produced no text, or throws for blocked/odd shapes.</summary>
@@ -127,7 +128,7 @@ public static class ResponseParsers
         return sb.ToString();
     }
 
-    private static bool AppendTextItems(JsonElement array, StringBuilder sb)
+    private static bool AppendTextItems(JsonElement array, List<string> pieces)
     {
         var found = false;
         foreach (var item in array.EnumerateArray())
@@ -140,7 +141,7 @@ public static class ResponseParsers
             var type = GetString(item, "type");
             if ((type is null || type == "text") && GetString(item, "text") is { } text)
             {
-                sb.Append(text);
+                pieces.Add(text);
                 found = true;
             }
         }
