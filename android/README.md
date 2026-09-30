@@ -9,14 +9,15 @@ against the same files in [`shared/test-fixtures/`](../shared/test-fixtures).
 | Folder | What it is |
 |---|---|
 | `core/` | Plain Kotlin (no Android APIs), a separate Gradle build: settings in the shared JSON format, the Gemini engines (inline audio, Files API, backup engine, live WebSocket streaming with fallback and pause), text joining and clean-up, WAV, saved recordings, history, the redacting logger and the dictation state machine. A port of `windows/src/Plainspoken.Core`. |
-| `app/` | The Android app. Framework views only (no AndroidX): `keyboard/` (the `InputMethodService` and its custom-drawn mic button and keys), `platform/` (microphone via `AudioRecord`, sounds, Android Keystore key storage), the setup/home, settings and history screens. |
+| `app/` | The Android app. Framework views only (no AndroidX UI libraries): `keyboard/` (the `InputMethodService` and its custom-drawn mic button and keys), `platform/` (microphone via `AudioRecord`, sounds, Android Keystore key storage), the setup/home, settings and history screens. |
 
 The app targets Android 8.0+ (API 26) and Android 15 (API 35). Its only libraries are OkHttp, kotlinx.coroutines
-and kotlinx.serialization (see `THIRD-PARTY-NOTICES.md`).
+and kotlinx.serialization, plus three small AndroidX libraries that OkHttp itself needs (see `THIRD-PARTY-NOTICES.md`).
+It is built with the Android Gradle Plugin 9, which compiles the Kotlin code itself.
 
 ## Build and test
 
-Needs JDK 17 and, for the app, the Android SDK (API 35).
+Needs JDK 17 and, for the app, the Android SDK (API 37).
 
 ```
 cd android
