@@ -38,6 +38,17 @@ settings.json
 logs/
 !shared/settings.schema.json
 
+# Android / Gradle
+.gradle/
+.kotlin/
+build/
+local.properties
+*.apk
+*.aab
+# Signing keys: never commit
+*.jks
+*.keystore
+
 # Misc
 *.whl
 .DS_Store
