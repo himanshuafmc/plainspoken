@@ -33,4 +33,11 @@ Get-FileHash .\Plainspoken-win-x64-<version>.zip -Algorithm SHA256
 ```
 
 The Android APK is signed with the same release key every time; Android refuses to install an update signed with
-a different key.
+a different key. The release certificate's SHA-256 fingerprint is:
+
+```
+94:9A:D5:78:1F:55:81:D8:07:26:2C:B4:5D:0A:8C:68:93:20:6A:36:18:BB:69:D2:F2:3E:4E:6A:1B:60:6D:31
+```
+
+To check an APK with the Android SDK build tools: `apksigner verify --print-certs Plainspoken-android-<version>.apk`
+and compare the "SHA-256 digest" line.
