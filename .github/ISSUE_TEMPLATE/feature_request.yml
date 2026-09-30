@@ -1,0 +1,31 @@
+name: Idea or feature request
+description: Suggest something that would make Plainspoken more useful
+labels: [enhancement]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for the idea! Please check the [roadmap](https://github.com/himanshuafmc/plainspoken#roadmap) and existing issues first.
+  - type: textarea
+    id: problem
+    attributes:
+      label: What are you trying to do?
+      description: Describe the situation, not only the solution. For example, "I dictate long emails and lose my place when…"
+    validations:
+      required: true
+  - type: textarea
+    id: idea
+    attributes:
+      label: What would help?
+    validations:
+      required: true
+  - type: dropdown
+    id: platform
+    attributes:
+      label: Where would you use it?
+      options:
+        - Windows
+        - Android (planned)
+        - Both
+    validations:
+      required: true

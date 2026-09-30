@@ -1,8 +1,10 @@
 """Builds assets/plainspoken.ico (and a 256 px PNG) from assets/plainspoken.svg.
+With --social it instead renders assets/social-preview.svg to social-preview.png (1280x640),
+the image GitHub shows when the repository link is shared.
 
 Renders the SVG once at 1024 px with headless Chromium, then downsamples it (area average,
 premultiplied alpha) to the usual Windows icon sizes and packs them as PNG-in-ICO.
-No Python packages needed. Run:  python3 assets/make_icon.py
+No Python packages needed. Run:  python3 assets/make_icon.py [--social]
 Set CHROME=/path/to/chrome if Chromium isn't found automatically.
 """
 import glob, os, shutil, struct, subprocess, sys, tempfile, zlib
@@ -21,16 +23,20 @@ def find_chrome():
     sys.exit("Chromium not found; set CHROME=/path/to/chrome")
 
 
-def render(tmp):
+def render(tmp, svg=SVG, width=SRC, height=SRC):
+    """Returns (width, height, RGBA rows). Headless Chromium's viewport is shorter than its window,
+    so the window is made taller than needed and the result cropped."""
     html = os.path.join(tmp, "render.html")
     with open(html, "w") as f:
-        f.write(f'<html><body style="margin:0;background:transparent"><img src="file://{SVG}" '
-                f'style="width:{SRC}px;height:{SRC}px;display:block"></body></html>')
+        f.write(f'<html><body style="margin:0;background:transparent"><img src="file://{svg}" '
+                f'style="width:{width}px;height:{height}px;display:block"></body></html>')
     out = os.path.join(tmp, "big.png")
     subprocess.run([find_chrome(), "--headless=new", "--no-sandbox", "--disable-gpu", "--hide-scrollbars",
-                    "--default-background-color=00000000", f"--window-size={SRC},{SRC}", f"--screenshot={out}",
+                    "--default-background-color=00000000", f"--window-size={width},{height + 300}", f"--screenshot={out}",
                     "file://" + html], check=True, capture_output=True)
-    return open(out, "rb").read()
+    w, h, rows = decode_png(open(out, "rb").read())
+    assert w == width and h >= height, f"unexpected screenshot size {w}x{h}"
+    return width, height, rows[:height]
 
 
 def decode_png(data):
@@ -86,17 +92,28 @@ def downsample(w, h, rows, size):
     return out
 
 
-def encode_png(size, rows):
+def encode_png(size, rows, height=None):
     raw = b"".join(b"\0" + bytes(r) for r in rows)
     def chunk(t, d):
         return struct.pack(">I", len(d)) + t + d + struct.pack(">I", zlib.crc32(t + d) & 0xFFFFFFFF)
-    return (b"\x89PNG\r\n\x1a\n" + chunk(b"IHDR", struct.pack(">IIBBBBB", size, size, 8, 6, 0, 0, 0))
+    return (b"\x89PNG\r\n\x1a\n" + chunk(b"IHDR", struct.pack(">IIBBBBB", size, height or size, 8, 6, 0, 0, 0))
             + chunk(b"IDAT", zlib.compress(raw, 9)) + chunk(b"IEND", b""))
 
 
-def main():
+def social():
     with tempfile.TemporaryDirectory() as tmp:
-        w, h, rows = decode_png(render(tmp))
+        w, h, rows = render(tmp, os.path.join(HERE, "social-preview.svg"), 1280, 640)
+    png = encode_png(w, rows, h)
+    open(os.path.join(HERE, "social-preview.png"), "wb").write(png)
+    print(f"wrote social-preview.png ({len(png)} bytes)")
+
+
+def main():
+    if "--social" in sys.argv[1:]:
+        social()
+        return
+    with tempfile.TemporaryDirectory() as tmp:
+        w, h, rows = render(tmp)
     pngs = [(s, encode_png(s, downsample(w, h, rows, s))) for s in SIZES]
     ico = struct.pack("<HHH", 0, 1, len(pngs))
     offset = 6 + 16 * len(pngs)

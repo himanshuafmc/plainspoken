@@ -106,7 +106,7 @@ Nothing you dictate is lost: if anything fails, the recording is kept until it's
 
 ## Contributing
 
-Bug reports are very welcome — please use the **[bug report form](https://github.com/himanshuafmc/plainspoken/issues/new?template=bug_report.yml)**, and never paste your API key or anything private you dictated. Pull requests are reviewed when time allows.
+Bug reports are very welcome — please use the **[bug report form](https://github.com/himanshuafmc/plainspoken/issues/new?template=bug_report.yml)**, and never paste your API key or anything private you dictated. Ideas go in the [feature request form](https://github.com/himanshuafmc/plainspoken/issues/new?template=feature_request.yml). Security problems: see [SECURITY.md](SECURITY.md). Pull requests are reviewed when time allows — [CONTRIBUTING.md](CONTRIBUTING.md) explains how to build, test and what a good pull request looks like.
 
 For developers: `windows/` holds the .NET 10 solution (`Plainspoken.Core` is portable, tested logic; `Plainspoken.App` is the WinForms tray app). Build with `dotnet build windows/Plainspoken.sln -p:EnableWindowsTargeting=true` and test with `dotnet test windows/tests/Plainspoken.Core.Tests`. The behaviour spec that the Android app will share is in [`docs/SPEC.md`](docs/SPEC.md); design decisions are in [`docs/DECISIONS.md`](docs/DECISIONS.md).
 
