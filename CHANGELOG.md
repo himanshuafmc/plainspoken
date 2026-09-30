@@ -2,10 +2,17 @@
 
 All notable changes to Plainspoken. Versions follow [Semantic Versioning](https://semver.org/).
 
-## [Unreleased]
+## [0.2.1] - 2026-09-30
+
+A maintenance update for both apps. Nothing changes in how Plainspoken works; it's built with newer, up-to-date components.
 
 ### Android
-- Built with the newer Android build tools (Android Gradle Plugin 9, Gradle 9) and OkHttp 5. Nothing changes in how the app works.
+- Built with the latest Android build tools and a newer version of OkHttp, the library that talks to Google.
+- Installs over 0.2.0 as a normal update; your key, settings and history stay.
+
+### Windows
+- Uses a newer version of NAudio, the library that records from your microphone.
+- Replace your old `Plainspoken.exe` with the new one; your settings and history stay.
 
 ## [0.2.0] - 2026-09-30
 
@@ -46,6 +53,7 @@ The first public release. 🎉
 - Windows may show "Windows protected your PC" the first time: click More info → Run anyway. The app isn't code-signed yet.
 - Windows 10/11, 64-bit. No installer; unzip and run.
 
+[0.2.1]: https://github.com/himanshuafmc/plainspoken/releases/tag/v0.2.1
 [0.2.0]: https://github.com/himanshuafmc/plainspoken/releases/tag/v0.2.0
 [0.1.1]: https://github.com/himanshuafmc/plainspoken/releases/tag/v0.1.1
 [0.1.0]: https://github.com/himanshuafmc/plainspoken/releases/tag/v0.1.0
