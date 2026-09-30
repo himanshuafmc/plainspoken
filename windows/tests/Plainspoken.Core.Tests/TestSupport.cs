@@ -6,8 +6,9 @@ namespace Plainspoken.Core.Tests;
 
 internal static class Fixtures
 {
+    /// <summary>Reads shared/test-fixtures/{name}; the Android tests use the same files.</summary>
     public static string Read(string name) =>
-        File.ReadAllText(Path.Combine(AppContext.BaseDirectory, "Fixtures", name));
+        File.ReadAllText(Path.Combine(AppContext.BaseDirectory, "shared", "test-fixtures", name));
 
     public static string Shared(string name) =>
         File.ReadAllText(Path.Combine(AppContext.BaseDirectory, "shared", name));

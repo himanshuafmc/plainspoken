@@ -1,7 +1,10 @@
 # Third-party notices
 
 Plainspoken is licensed under the GNU General Public License v3.0 (see `LICENSE`).
-The Windows release bundles the following third-party components, each under its own licence.
+The releases bundle the following third-party components, each under its own licence
+(all compatible with the GPL-3.0).
+
+# Windows app
 
 ## NAudio (NAudio.Core, NAudio.Wasapi 2.2.1)
 
@@ -34,6 +37,20 @@ The self-contained `Plainspoken.exe` includes the .NET 10 runtime and Windows Fo
 and contributors, MIT License. Their own third-party notices are published at
 https://github.com/dotnet/runtime/blob/main/THIRD-PARTY-NOTICES.TXT and
 https://github.com/dotnet/winforms/blob/main/THIRD-PARTY-NOTICES.TXT.
+
+# Android app
+
+The Android APK bundles these libraries, all under the Apache License 2.0
+(https://www.apache.org/licenses/LICENSE-2.0):
+
+- **OkHttp** and **Okio** — HTTP and WebSocket client. © Square, Inc. https://github.com/square/okhttp
+- **Kotlin standard library**, **kotlinx.coroutines** and **kotlinx.serialization** — © JetBrains s.r.o. and
+  Kotlin contributors. https://github.com/JetBrains/kotlin, https://github.com/Kotlin/kotlinx.coroutines,
+  https://github.com/Kotlin/kotlinx.serialization
+
+No Google Play Services or other Google libraries are included.
+
+# Both apps
 
 ## Google Gemini API
 

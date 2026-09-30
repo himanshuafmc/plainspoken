@@ -1,11 +1,11 @@
 <Project>
   <!--
-    Single source of truth for the app version and shared compiler settings.
-    To release: bump <VersionPrefix>, push, then tag v<VersionPrefix>.
+    Shared compiler settings. The version comes from the VERSION file at the repository root,
+    which the Android app reads too, so both apps always carry the same version number.
   -->
   <PropertyGroup>
-    <VersionPrefix>0.1.1</VersionPrefix>
-    <!-- Working name. User-visible strings come from Plainspoken.Core.AppInfo.Name. -->
+    <VersionPrefix>$([System.IO.File]::ReadAllText('$(MSBuildThisFileDirectory)../VERSION').Trim())</VersionPrefix>
+    <!-- User-visible strings come from Plainspoken.Core.AppInfo.Name. -->
     <Product>Plainspoken</Product>
     <Company>Plainspoken contributors</Company>
     <Copyright>Copyright (C) 2026 Plainspoken contributors. Licensed under GPL-3.0.</Copyright>

@@ -102,3 +102,60 @@ For each: [ ] text appears at the cursor, [ ] "um" removed and punctuation added
 ## I. Exit
 
 - [ ] Tray → Exit: the icon disappears; Ctrl+Alt+Space no longer does anything; the microphone privacy indicator (if shown) goes away.
+
+---
+
+# Android checklist (phone)
+
+Phone and Android version: ______________ Plainspoken version: ______ Date: ______
+
+When something fails, attach the log: Plainspoken app → Settings → **Export the log** (never contains your words or your key).
+
+## J. Install and set-up
+
+- [ ] Download `Plainspoken-android-<version>.apk` from the Releases page on the phone and open it. Android asks to allow installs from the browser/file manager → allow → **Install** (if Play Protect warns, **Install anyway**).
+- [ ] Open Plainspoken: the checklist shows 6 steps. **Open Google AI Studio** opens the key page.
+- [ ] Paste a wrong key → **Test and save** says it was not accepted. Right key → "Key works" and step 2 ticks.
+- [ ] Notice: **Continue** refuses until "I understand" is ticked.
+- [ ] **Allow microphone** → Android's permission dialog → Allow → step ticks.
+- [ ] **Open keyboard settings** → switch on Plainspoken (Android's standard warning appears) → back → step ticks.
+- [ ] **Choose keyboard** → pick Plainspoken → "You're all set ✓".
+
+## K. Dictation in apps (5-second dictations, English / Hindi / Hinglish)
+
+| App | English | Hindi | Hinglish |
+|---|---|---|---|
+| WhatsApp | [ ] | [ ] | [ ] |
+| Gmail (compose) | [ ] | [ ] | [ ] |
+| Chrome (search box) | [ ] | [ ] | [ ] |
+| Notes / Keep | [ ] | [ ] | [ ] |
+
+For each: [ ] tap mic → it turns into a green ✓ with a moving halo and "Listening 0:03", [ ] tap ✓ → "Transcribing…" → text appears in the box, [ ] "um" removed and punctuation added, [ ] words are separated by spaces and there is a space after full stops, [ ] a second dictation right after the first starts with a space.
+
+## L. Keyboard behaviour
+
+- [ ] ✕ while listening → "Cancelled", nothing inserted. ✕ while transcribing → "Stopped — recording saved", **Retry** appears; Retry inserts the text.
+- [ ] Tap the mic and stay silent for 3 s, then ✓ → "Didn't catch that".
+- [ ] Space, comma, full stop work; delete deletes one character and repeats while held; enter sends in WhatsApp (or adds a new line where there is no action).
+- [ ] 🌐 returns to the previous keyboard; long-press 🌐 shows the keyboard list.
+- [ ] ⚙ opens the Plainspoken app.
+- [ ] In a password box the mic is grey and says voice typing is off.
+- [ ] Press Home while listening → the recording is transcribed and the text copied ("Copied"); paste it back.
+- [ ] Rotate the phone while idle and while listening → keyboard still works.
+- [ ] Dark mode on/off → keyboard and app are readable in both.
+
+## M. Speed, failures and limits
+
+- [ ] 5-second dictation: time from ✓ to text: ______ s (live streaming on). Settings → Advanced → turn live streaming off → ______ s. Turn it back on.
+- [ ] Airplane mode, dictate → "No internet connection… saved", **Retry** key appears. Turn airplane mode off → Retry → text inserted.
+- [ ] Settings → remove the key, dictate → message with **Open app**.
+- [ ] Revoke the microphone permission in Android settings, tap the mic → message with **Allow**, which opens the app and asks again.
+- [ ] Long dictation (2 minutes) → full text inserted.
+
+## N. App screens
+
+- [ ] Recent transcripts: newest first; tapping one copies it; **Clear history** empties it. Turning history off in Settings clears it and adds nothing new.
+- [ ] Settings: language, style, vocabulary (Save words), options and advanced changes are kept after closing and reopening the app.
+- [ ] Export settings → open the file → **no key inside**. Import a file exported from Plainspoken for Windows → vocabulary and options match.
+- [ ] Export the log → the file contains timings and error codes, not your words.
+- [ ] Uninstall and reinstall → the key has to be entered again (it was encrypted with a key tied to the old install).

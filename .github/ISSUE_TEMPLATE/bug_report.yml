@@ -7,19 +7,28 @@ body:
       value: |
         Thanks for taking the time to report a problem!
         **Never paste your Gemini API key or anything private you dictated.** Describe the kind of text instead (for example "a short WhatsApp message in Hinglish").
-  - type: input
-    id: windows
+  - type: dropdown
+    id: platform
     attributes:
-      label: Windows version
-      description: Press Win+R, type `winver`, press Enter.
-      placeholder: Windows 11 23H2
+      label: Which app?
+      options:
+        - Windows
+        - Android
+    validations:
+      required: true
+  - type: input
+    id: system
+    attributes:
+      label: Windows or Android version, and device
+      description: "Windows: press Win+R, type `winver`. Android: Settings → About phone."
+      placeholder: "Windows 11 23H2 / Android 14 on a Pixel 7"
     validations:
       required: true
   - type: input
     id: version
     attributes:
       label: Plainspoken version
-      description: Right-click the tray icon → About.
+      description: "Windows: right-click the tray icon → About. Android: the bottom of the Plainspoken app's home screen."
       placeholder: "0.1.0"
     validations:
       required: true
@@ -38,7 +47,7 @@ body:
     id: steps
     attributes:
       label: What did you do?
-      placeholder: "1. Clicked in Notepad  2. Pressed Ctrl+Alt+Space  3. Spoke for 10 seconds  4. Pressed Ctrl+Alt+Space"
+      placeholder: "1. Opened WhatsApp  2. Tapped the mic on the Plainspoken keyboard  3. Spoke for 10 seconds  4. Tapped ✓"
     validations:
       required: true
   - type: textarea
@@ -52,5 +61,6 @@ body:
     attributes:
       label: Log (optional)
       description: |
-        The newest file in `%LOCALAPPDATA%\Plainspoken\logs`. Logs never contain your words or your key, but please look before pasting.
+        Windows: the newest file in `%LOCALAPPDATA%\Plainspoken\logs`. Android: Plainspoken app → Settings → Export the log.
+        Logs never contain your words or your key, but please look before pasting.
       render: text

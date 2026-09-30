@@ -2,6 +2,21 @@
 
 All notable changes to Plainspoken. Versions follow [Semantic Versioning](https://semver.org/).
 
+## [0.2.0] - 2026-09-30
+
+Plainspoken for **Android** is here — the same Plainspoken, now on your phone. 📱
+
+### New: Android app
+- **A voice keyboard.** In any app, switch to the Plainspoken keyboard, tap the big mic, speak, and tap ✓ — clean, punctuated text goes straight into the text box. It also has ✕ to cancel, Retry, and keys for switching keyboard, comma, space, full stop, delete and enter.
+- **Everything from Windows:** English, Hindi and Hinglish; live streaming with automatic fallback; the backup model when Google's free limits are hit; saved recordings you can retry; your last 20 transcripts; vocabulary; Smart or Verbatim.
+- **Easy setup:** the app walks you through the key, the microphone and turning the keyboard on, with a box to try it.
+- **Private:** your key is encrypted with the Android Keystore, the app is excluded from cloud backup, voice typing is off in password boxes, and nothing is kept in history for incognito text boxes.
+- **One settings file for both apps:** export on Windows, import on Android, or the other way round.
+- Android 8.0 or newer. Download the APK from this release (not on the Play Store yet).
+
+### Windows
+- No changes to the app itself; it moves to version 0.2.0 so both apps share one version number.
+
 ## [0.1.1] - 2026-09-30
 
 ### Fixed
@@ -26,5 +41,6 @@ The first public release. 🎉
 - Windows may show "Windows protected your PC" the first time: click More info → Run anyway. The app isn't code-signed yet.
 - Windows 10/11, 64-bit. No installer; unzip and run.
 
+[0.2.0]: https://github.com/himanshuafmc/plainspoken/releases/tag/v0.2.0
 [0.1.1]: https://github.com/himanshuafmc/plainspoken/releases/tag/v0.1.1
 [0.1.0]: https://github.com/himanshuafmc/plainspoken/releases/tag/v0.1.0

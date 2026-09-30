@@ -8,60 +8,26 @@ public class TranscriptJoinerTests
 {
     private static string Join(params string[] pieces) => TranscriptJoiner.Join(pieces);
 
-    [Fact]
-    public void Trimmed_phrases_get_spaces_at_word_and_sentence_boundaries()
+    public static TheoryData<string, string[], string> JoinCases()
     {
-        // The reported bug: pieces cut at pauses and sentence ends, each without its spaces.
-        Assert.Equal("Please add milk, eggs and bread. The total is 2,500 rupees.",
-            Join("Please add milk,", "eggs and", "bread.", "The total is", "2,500 rupees."));
-        Assert.Equal("I will call you tomorrow morning. Please wait.",
-            Join("I will call you tomorrow", "morning.", "Please wait."));
-    }
+        var data = new TheoryData<string, string[], string>();
+        using var doc = System.Text.Json.JsonDocument.Parse(Fixtures.Read("text-cases.json"));
+        foreach (var c in doc.RootElement.GetProperty("join").EnumerateArray())
+        {
+            data.Add(c.GetProperty("note").GetString()!,
+                c.GetProperty("pieces").EnumerateArray().Select(p => p.GetString()!).ToArray(),
+                c.GetProperty("expected").GetString()!);
+        }
 
-    [Fact]
-    public void Pieces_that_carry_their_own_spaces_are_kept_exactly()
-    {
-        Assert.Equal("The transcription is ready.", Join("The", " trans", "cription", " is", " ready", "."));
-        Assert.Equal("Hello world, how are you?", Join("Hello ", "world, ", "how are ", "you?"));
-    }
-
-    [Fact]
-    public void A_missing_space_after_a_sentence_is_added_even_in_token_streams()
-    {
-        Assert.Equal("It is done. Next one.", Join("It", " is", " done.", "Next", " one."));
-    }
-
-    [Fact]
-    public void Single_word_tokens_without_spaces_are_not_split()
-    {
-        Assert.Equal("Okay.", Join("Ok", "ay", "."));
-        Assert.Equal("WhatsApp", Join("Whats", "App"));
+        return data;
     }
 
     [Theory]
-    [InlineData("The price is 2.", "5 lakh rupees", "The price is 2.5 lakh rupees")]
-    [InlineData("Meet at 10:", "30 AM", "Meet at 10:30 AM")]
-    [InlineData("It costs 1,", "000 rupees", "It costs 1,000 rupees")]
-    [InlineData("See you at 10 a.", "m. sharp", "See you at 10 a.m. sharp")]
-    [InlineData("Open www.", "example.com now", "Open www.example.com now")]
-    [InlineData("Mail me at name@example.", "com today", "Mail me at name@example.com today")]
-    [InlineData("Open https:", "//example.com", "Open https://example.com")]
-    [InlineData("It is well-", "known now", "It is well-known now")]
-    [InlineData("He said \"", "hello\" to me", "He said \"hello\" to me")]
-    [InlineData("He said", "\"hello\" to me", "He said \"hello\" to me")]
-    [InlineData("Is it ready", "? Yes it is", "Is it ready? Yes it is")]
-    [InlineData("Call Ravi (", "my friend) now", "Call Ravi (my friend) now")]
-    [InlineData("It is done", "'s fine now", "It is done's fine now")]
-    [InlineData("Kal meeting hai.", "Please aana", "Kal meeting hai. Please aana")]
-    [InlineData("मुझे कल जाना है।", "फिर आऊँगा", "मुझे कल जाना है। फिर आऊँगा")]
-    [InlineData("मुझे कल जाना", "है अभी", "मुझे कल जाना है अभी")]
-    public void Boundaries(string left, string right, string expected) => Assert.Equal(expected, Join(left, right));
-
-    [Fact]
-    public void Combining_marks_always_attach()
+    [MemberData(nameof(JoinCases))]
+    public void Shared_join_cases(string note, string[] pieces, string expected)
     {
-        // A piece that starts with a Devanagari vowel sign continues the previous syllable.
-        Assert.Equal("कल सुबह जाना है", Join("कल सुबह ज", "ाना है"));
+        _ = note;
+        Assert.Equal(expected, Join(pieces));
     }
 
     [Fact]
@@ -101,20 +67,20 @@ public class TranscriptJoinerTests
 
 public class PunctuationSpacingTests
 {
+    public static TheoryData<string, string> SpacingCases()
+    {
+        var data = new TheoryData<string, string>();
+        using var doc = System.Text.Json.JsonDocument.Parse(Fixtures.Read("text-cases.json"));
+        foreach (var c in doc.RootElement.GetProperty("spacing").EnumerateArray())
+        {
+            data.Add(c.GetProperty("input").GetString()!, c.GetProperty("expected").GetString()!);
+        }
+
+        return data;
+    }
+
     [Theory]
-    [InlineData("See you tomorrow.Please call me.", "See you tomorrow. Please call me.")]
-    [InlineData("Really?Yes!Great.", "Really? Yes! Great.")]
-    [InlineData("Milk,eggs and bread", "Milk, eggs and bread")]
-    [InlineData("Note:Please bring the file.", "Note: Please bring the file.")]
-    [InlineData("मुझे कल जाना है।फिर आऊँगा", "मुझे कल जाना है। फिर आऊँगा")]
-    [InlineData("Kal jana hai.मैं आऊँगा", "Kal jana hai. मैं आऊँगा")]
-    [InlineData("It costs ₹2,500 or 2.5 lakh at 10:30 AM.", "It costs ₹2,500 or 2.5 lakh at 10:30 AM.")]
-    [InlineData("Made in the U.S.A. at 10 a.m. e.g. today", "Made in the U.S.A. at 10 a.m. e.g. today")]
-    [InlineData("Open www.Example.com or https://Example.com", "Open www.Example.com or https://Example.com")]
-    [InlineData("Write to name@Example.com", "Write to name@Example.com")]
-    [InlineData("Use Node.js and ASP.NET", "Use Node.js and ASP.NET")]
-    [InlineData("1.First item", "1.First item")]
-    [InlineData("Already fine. Nothing to do.", "Already fine. Nothing to do.")]
+    [MemberData(nameof(SpacingCases))]
     public void Adds_only_the_missing_space(string input, string expected) =>
         Assert.Equal(expected, TextPostProcessor.FixSpaceAfterPunctuation(input));
 
