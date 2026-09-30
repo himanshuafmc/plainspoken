@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Plainspoken</string>
+    <string name="settings_title">Plainspoken settings</string>
+    <string name="history_title">Recent transcripts</string>
+    <string name="subtype_label">English, Hindi and Hinglish</string>
+</resources>

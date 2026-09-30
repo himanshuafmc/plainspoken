@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- The Plainspoken icon (assets/plainspoken.svg) scaled into the adaptive-icon safe zone. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <group
+        android:scaleX="0.24"
+        android:scaleY="0.24"
+        android:translateX="23.3"
+        android:translateY="22.8">
+        <path android:fillColor="#0B7A6B" android:pathData="M68 24h120a44 44 0 0 1 44 44v84a44 44 0 0 1-44 44h-74l-46 38a6 6 0 0 1-9.8-4.6V196A44 44 0 0 1 24 152V68a44 44 0 0 1 44-44z" />
+        <path android:fillColor="#FFFFFF" android:pathData="M55,101A9,9 0 0,1 73,101L73,131A9,9 0 0,1 55,131Z M87,81A9,9 0 0,1 105,81L105,151A9,9 0 0,1 87,151Z M119,65A9,9 0 0,1 137,65L137,167A9,9 0 0,1 119,167Z M151,85A9,9 0 0,1 169,85L169,147A9,9 0 0,1 151,147Z M183,107A9,9 0 0,1 201,107L201,125A9,9 0 0,1 183,125Z" />
+    </group>
+</vector>
