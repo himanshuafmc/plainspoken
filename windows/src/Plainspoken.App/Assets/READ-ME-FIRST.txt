@@ -12,4 +12,4 @@ Plainspoken - free, open-source voice typing for Windows
 Plainspoken lives in the system tray (bottom-right, near the clock; click ^ if you don't see it).
 Right-click the tray icon for Settings, recent transcripts and Retry.
 
-Licence: GNU GPL v3.0 (see LICENSE). Third-party notices: THIRD-PARTY-NOTICES.md.
+Licence: GNU GPL v3.0 (see LICENSE.txt). Third-party notices: THIRD-PARTY-NOTICES.md.
