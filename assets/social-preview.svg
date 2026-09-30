@@ -1,0 +1,23 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1280 640" width="1280" height="640">
+  <!-- GitHub social preview for Plainspoken. Original artwork, GPL-3.0 like the rest of the project.
+       Render to social-preview.png (1280x640) with make_icon.py and its social option. -->
+  <title>Plainspoken</title>
+  <rect width="1280" height="640" fill="#F3FAF8"/>
+  <rect x="0" y="600" width="1280" height="40" fill="#0B7A6B"/>
+  <g transform="translate(96 150) scale(1.3)">
+    <path fill="#0B7A6B" d="M68 24h120a44 44 0 0 1 44 44v84a44 44 0 0 1-44 44h-74l-46 38a6 6 0 0 1-9.8-4.6V196A44 44 0 0 1 24 152V68a44 44 0 0 1 44-44z"/>
+    <g fill="#FFFFFF">
+      <rect x="55"  y="92"  width="18" height="48"  rx="9"/>
+      <rect x="87"  y="72"  width="18" height="88"  rx="9"/>
+      <rect x="119" y="56"  width="18" height="120" rx="9"/>
+      <rect x="151" y="76"  width="18" height="80"  rx="9"/>
+      <rect x="183" y="98"  width="18" height="36"  rx="9"/>
+    </g>
+  </g>
+  <g font-family="'Liberation Sans', Arial, Helvetica, sans-serif" fill="#10302B">
+    <text x="470" y="262" font-size="96" font-weight="700">Plainspoken</text>
+    <text x="472" y="336" font-size="38" fill="#0B7A6B" font-weight="700">Speak naturally. Get clean text anywhere.</text>
+    <text x="472" y="410" font-size="30">Free, open-source voice typing for Windows</text>
+    <text x="472" y="452" font-size="30">English · Hindi · Hinglish</text>
+  </g>
+</svg>

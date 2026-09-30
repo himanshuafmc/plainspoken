@@ -1,0 +1,1 @@
+{"error":{"message":"Rate limit exceeded for model gemini-3.5-transcribe (limit: 3 requests per minute on Free Tier). Please retry in 43s or upgrade your tier at https://ai.dev/rate-limit.","code":"too_many_requests"}}

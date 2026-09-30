@@ -1,0 +1,15 @@
+{
+  "file": {
+    "name": "files/1qp4xte94dib",
+    "displayName": "plainspoken-dictation",
+    "mimeType": "audio/wav",
+    "sizeBytes": "272732",
+    "createTime": "2026-09-30T02:32:17.115974Z",
+    "updateTime": "2026-09-30T02:32:17.115974Z",
+    "expirationTime": "2026-10-02T02:32:16.916525481Z",
+    "sha256Hash": "M2FjZjdmN2U4MTcwMzI3Y2Y3OTk2YzA3ODgwODcxYWFkYTJlZTQ5NmEzMDgzYTEwYjJjNWMwZDQ2YjYwMTAyNA==",
+    "uri": "https://generativelanguage.googleapis.com/v1beta/files/1qp4xte94dib",
+    "state": "ACTIVE",
+    "source": "UPLOADED"
+  }
+}
