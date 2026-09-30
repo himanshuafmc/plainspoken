@@ -2,6 +2,11 @@
 
 All notable changes to Plainspoken. Versions follow [Semantic Versioning](https://semver.org/).
 
+## [Unreleased]
+
+### Android
+- Built with the newer Android build tools (Android Gradle Plugin 9, Gradle 9) and OkHttp 5. Nothing changes in how the app works.
+
 ## [0.2.0] - 2026-09-30
 
 Plainspoken for **Android** is here — the same Plainspoken, now on your phone. 📱

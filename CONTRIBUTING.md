@@ -50,7 +50,7 @@ GEMINI_API_KEY=... dotnet run --project windows/tools/Plainspoken.Smoke -- --eng
 - UI changes: say what you tried by hand, on which device, using the relevant part of [`docs/TEST-CHECKLIST.md`](docs/TEST-CHECKLIST.md).
 - **No secrets or personal data, ever:** no API keys (not even fake ones that look real; build them at run time as `FakeKey` does), no real recordings (`*.wav` is ignored; use `make-clips.sh`), no real names, places or personal vocabulary in tests, fixtures or examples.
 - Only your own work, or code under a GPL-3.0-compatible licence with its notice added to `THIRD-PARTY-NOTICES.md`. Don't copy code, text, icons or sounds from other dictation apps.
-- New dependencies need a good reason; Windows uses only NAudio, Android only OkHttp and the kotlinx libraries.
+- New dependencies need a good reason; Windows uses only NAudio, Android only OkHttp (with the few AndroidX libraries it needs) and the kotlinx libraries.
 
 By contributing you agree that your contribution is licensed under the [GNU GPL v3.0](LICENSE), like the rest of the project.
 

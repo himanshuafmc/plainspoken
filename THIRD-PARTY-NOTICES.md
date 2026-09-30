@@ -44,11 +44,13 @@ The Android APK bundles these libraries, all under the Apache License 2.0
 (https://www.apache.org/licenses/LICENSE-2.0):
 
 - **OkHttp** and **Okio** — HTTP and WebSocket client. © Square, Inc. https://github.com/square/okhttp
+- **AndroidX Startup**, **AndroidX Annotation** and **AndroidX Tracing** — used by OkHttp on Android.
+  © The Android Open Source Project. https://developer.android.com/jetpack/androidx
 - **Kotlin standard library**, **kotlinx.coroutines** and **kotlinx.serialization** — © JetBrains s.r.o. and
   Kotlin contributors. https://github.com/JetBrains/kotlin, https://github.com/Kotlin/kotlinx.coroutines,
   https://github.com/Kotlin/kotlinx.serialization
 
-No Google Play Services or other Google libraries are included.
+No Google Play Services, analytics or advertising libraries are included.
 
 # Both apps
 
