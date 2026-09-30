@@ -1,0 +1,61 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:plainspoken:settings-schema:1",
+  "title": "Plainspoken exported settings",
+  "description": "Settings shared between devices and platforms (Windows now, Android later). Never contains the API key. See docs/SPEC.md section 6. Readers must ignore unknown properties and use defaults for missing ones.",
+  "type": "object",
+  "required": ["schemaVersion"],
+  "properties": {
+    "schemaVersion": { "type": "integer", "const": 1 },
+    "transcription": {
+      "type": "object",
+      "properties": {
+        "engine": { "enum": ["transcribe", "generate"], "default": "transcribe" },
+        "transcribeModel": { "type": "string", "minLength": 1, "default": "gemini-3.5-transcribe" },
+        "generateModel": { "type": "string", "minLength": 1, "default": "gemini-3.5-flash-lite" },
+        "apiBaseUrl": { "type": "string", "format": "uri", "default": "https://generativelanguage.googleapis.com" },
+        "requestTimeoutSeconds": { "type": "integer", "minimum": 10, "maximum": 600, "default": 60 },
+        "languages": { "enum": ["englishHindi", "auto", "english"], "default": "englishHindi" },
+        "mode": { "enum": ["smart", "verbatim"], "default": "smart" },
+        "useBackupEngineWhenLimited": { "type": "boolean", "default": true },
+        "liveStreaming": { "type": "boolean", "default": true, "description": "Stream audio to the live model while speaking; falls back to the normal engine if streaming fails." },
+        "liveModel": { "type": "string", "minLength": 1, "default": "gemini-3.5-transcribe-live" },
+        "customVocabulary": {
+          "type": "array",
+          "maxItems": 1000,
+          "items": { "type": "string", "minLength": 1, "maxLength": 100 }
+        }
+      }
+    },
+    "recording": {
+      "type": "object",
+      "properties": {
+        "maxSeconds": { "type": "integer", "minimum": 30, "maximum": 1800, "default": 600 },
+        "sounds": { "type": "boolean", "default": true }
+      }
+    },
+    "insertion": {
+      "type": "object",
+      "properties": {
+        "method": { "enum": ["paste", "type"], "default": "paste" },
+        "trailingSpace": { "type": "boolean", "default": true }
+      }
+    },
+    "history": {
+      "type": "object",
+      "properties": {
+        "enabled": { "type": "boolean", "default": true }
+      }
+    },
+    "showMiniButton": {
+      "type": "boolean",
+      "description": "Windows: show a small dictation button on screen while idle.",
+      "default": true
+    },
+    "hotkey": {
+      "type": "string",
+      "description": "Windows only. Modifiers (Ctrl, Alt, Shift, Win) and one key joined with '+'.",
+      "default": "Ctrl+Alt+Space"
+    }
+  }
+}

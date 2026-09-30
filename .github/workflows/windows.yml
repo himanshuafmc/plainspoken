@@ -1,0 +1,156 @@
+name: windows
+
+on:
+  push:
+    branches: ['**']
+    tags: ['v*']
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event_name }}-${{ github.ref }}
+  cancel-in-progress: ${{ !startsWith(github.ref, 'refs/tags/') }}
+
+env:
+  DOTNET_NOLOGO: 'true'
+  DOTNET_CLI_TELEMETRY_OPTOUT: 'true'
+  DOTNET_SKIP_FIRST_TIME_EXPERIENCE: 'true'
+  NUGET_PACKAGES: ${{ github.workspace }}/.nuget/packages
+
+jobs:
+  core-tests:
+    # Same-repo PRs are already covered by the push run on the same commit.
+    if: github.event_name == 'push' || github.event.pull_request.head.repo.full_name != github.repository
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+      - uses: actions/cache@v4
+        with:
+          path: ${{ env.NUGET_PACKAGES }}
+          key: nuget-${{ runner.os }}-${{ hashFiles('windows/**/*.csproj', 'windows/Directory.Build.props') }}
+          restore-keys: nuget-${{ runner.os }}-
+      - name: Core tests
+        run: dotnet test windows/tests/Plainspoken.Core.Tests -c Release
+
+  windows:
+    if: github.event_name == 'push' || github.event.pull_request.head.repo.full_name != github.repository
+    runs-on: windows-latest
+    timeout-minutes: 15
+    outputs:
+      version: ${{ steps.ver.outputs.version }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+      - uses: actions/cache@v4
+        with:
+          path: ${{ env.NUGET_PACKAGES }}
+          key: nuget-${{ runner.os }}-${{ hashFiles('windows/**/*.csproj', 'windows/Directory.Build.props') }}
+          restore-keys: nuget-${{ runner.os }}-
+      - name: Restore
+        run: dotnet restore windows/Plainspoken.sln
+      - name: Build
+        run: dotnet build windows/Plainspoken.sln -c Release --no-restore
+      - name: Test
+        run: dotnet test windows/tests/Plainspoken.Core.Tests -c Release --no-build
+      - name: Read version
+        id: ver
+        shell: pwsh
+        run: |
+          $v = (dotnet msbuild windows/src/Plainspoken.App/Plainspoken.App.csproj -getProperty:Version).Trim()
+          if (-not $v) { throw "Could not read Version" }
+          "version=$v" >> $env:GITHUB_OUTPUT
+          Write-Host "Version $v"
+      - name: Check tag matches version
+        if: startsWith(github.ref, 'refs/tags/v')
+        shell: pwsh
+        run: |
+          if ("${{ github.ref_name }}" -ne "v${{ steps.ver.outputs.version }}") {
+            throw "Tag ${{ github.ref_name }} does not match version ${{ steps.ver.outputs.version }} in Directory.Build.props"
+          }
+      - name: Publish single-file exe
+        run: >
+          dotnet publish windows/src/Plainspoken.App -c Release -r win-x64 --self-contained true
+          -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true -p:EnableCompressionInSingleFile=true
+          -p:DebugType=None -p:DebugSymbols=false
+          -o publish
+      - name: Zip
+        shell: pwsh
+        run: |
+          Copy-Item windows/src/Plainspoken.App/Assets/READ-ME-FIRST.txt publish/
+          Copy-Item LICENSE publish/LICENSE.txt
+          Copy-Item THIRD-PARTY-NOTICES.md publish/
+          $zip = "Plainspoken-win-x64-${{ steps.ver.outputs.version }}.zip"
+          Compress-Archive -Path publish/* -DestinationPath $zip -CompressionLevel Optimal
+          Get-ChildItem publish, $zip | Format-Table Name, Length
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Plainspoken-win-x64-${{ steps.ver.outputs.version }}
+          path: Plainspoken-win-x64-${{ steps.ver.outputs.version }}.zip
+          if-no-files-found: error
+          retention-days: 30
+
+  # Runs for a pushed v* tag, or for a push whose commit message contains [release]
+  # (then the tag v<version> is created on that commit by this job).
+  release:
+    if: startsWith(github.ref, 'refs/tags/v') || (github.event_name == 'push' && contains(github.event.head_commit.message, '[release]'))
+    needs: [core-tests, windows]
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: write
+    env:
+      VERSION: ${{ needs.windows.outputs.version }}
+      ZIP: Plainspoken-win-x64-${{ needs.windows.outputs.version }}.zip
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          sparse-checkout: CHANGELOG.md
+          sparse-checkout-cone-mode: false
+      - uses: actions/download-artifact@v4
+        with:
+          name: Plainspoken-win-x64-${{ needs.windows.outputs.version }}
+      - name: Write release notes from CHANGELOG.md
+        run: |
+          # The section under "## [<version>]", up to the next "## [" heading; link lines are skipped.
+          awk -v head="## [$VERSION]" '
+            index($0, head) == 1 { found = 1; next }
+            found && /^## \[/ { exit }
+            found && /^\[[^]]+\]: / { next }
+            found { print }
+          ' CHANGELOG.md > section.md
+          if [ ! -s section.md ]; then
+            echo "::warning::CHANGELOG.md has no section for $VERSION"
+          fi
+          sha=$(sha256sum "$ZIP" | cut -d' ' -f1)
+          {
+            cat section.md
+            echo
+            echo "---"
+            echo
+            echo "**Download:** \`$ZIP\` below. Unzip it and run \`Plainspoken.exe\` — see the [README](https://github.com/$GITHUB_REPOSITORY#quick-start-3-minutes) for the 3-step start."
+            echo "If Windows shows \"Windows protected your PC\", click **More info**, then **Run anyway** (the app isn't code-signed)."
+            echo
+            echo "SHA-256 of the zip: \`$sha\`"
+          } > notes.md
+          cat notes.md
+      - name: Create GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: v${{ needs.windows.outputs.version }}
+        run: |
+          if gh release view "$TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            echo "Release $TAG exists; replacing the zip and notes"
+            gh release upload "$TAG" "$ZIP" --clobber --repo "$GITHUB_REPOSITORY"
+            gh release edit "$TAG" --notes-file notes.md --repo "$GITHUB_REPOSITORY"
+          else
+            gh release create "$TAG" "$ZIP" --repo "$GITHUB_REPOSITORY" --target "$GITHUB_SHA" \
+              --title "Plainspoken $TAG" --notes-file notes.md
+          fi

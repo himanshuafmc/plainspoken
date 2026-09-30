@@ -1,0 +1,24 @@
+# Changelog
+
+All notable changes to Plainspoken. Versions follow [Semantic Versioning](https://semver.org/).
+
+## [0.1.0] - 2026-09-30
+
+The first public release. 🎉
+
+### What you can do
+- **Dictate anywhere on Windows.** Press Ctrl + Alt + Space (or click the small on-screen button), speak, and press it again. Clean, punctuated text appears where your cursor is — Word, Gmail, WhatsApp, Outlook, Notepad and more.
+- **Speak English, Hindi or Hinglish.** Fillers like "um" and "uh", repeats and false starts are removed; lists, dates and amounts are tidied up.
+- **Fast results.** Your voice is streamed to Google while you talk, so the text is usually ready moments after you stop. If streaming ever fails, Plainspoken quietly uses the standard method instead.
+- **Keeps working when Google's free limits are hit.** It switches to a backup speech model automatically (a little less accurate), so you rarely have to wait.
+- **Never lose a dictation.** If the internet drops or Google is busy, the recording is saved and one click on "Retry last dictation" gets your text.
+- **Your last 20 transcripts** are one right-click away in the tray menu.
+- **Your own words.** Add names and special terms to the vocabulary list so they're spelled right.
+- **Share settings** with family or colleagues by exporting a file — your API key is never included.
+
+### Good to know
+- Free with your own Google Gemini API key from aistudio.google.com/apikey. On Google's free tier, Google may use recordings to improve its products — don't dictate confidential information.
+- Windows may show "Windows protected your PC" the first time: click More info → Run anyway. The app isn't code-signed yet.
+- Windows 10/11, 64-bit. No installer; unzip and run.
+
+[0.1.0]: https://github.com/himanshuafmc/plainspoken/releases/tag/v0.1.0

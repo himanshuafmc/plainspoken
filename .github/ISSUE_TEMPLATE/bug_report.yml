@@ -1,0 +1,56 @@
+name: Bug report
+description: Something didn't work as expected
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for taking the time to report a problem!
+        **Never paste your Gemini API key or anything private you dictated.** Describe the kind of text instead (for example "a short WhatsApp message in Hinglish").
+  - type: input
+    id: windows
+    attributes:
+      label: Windows version
+      description: Press Win+R, type `winver`, press Enter.
+      placeholder: Windows 11 23H2
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: Plainspoken version
+      description: Right-click the tray icon → About.
+      placeholder: "0.1.0"
+    validations:
+      required: true
+  - type: dropdown
+    id: language
+    attributes:
+      label: What were you speaking?
+      options:
+        - English
+        - Hindi
+        - Hinglish (mixed)
+        - Not about speech
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: What did you do?
+      placeholder: "1. Clicked in Notepad  2. Pressed Ctrl+Alt+Space  3. Spoke for 10 seconds  4. Pressed Ctrl+Alt+Space"
+    validations:
+      required: true
+  - type: textarea
+    id: result
+    attributes:
+      label: What happened, and what did you expect?
+    validations:
+      required: true
+  - type: textarea
+    id: logs
+    attributes:
+      label: Log (optional)
+      description: |
+        The newest file in `%LOCALAPPDATA%\Plainspoken\logs`. Logs never contain your words or your key, but please look before pasting.
+      render: text

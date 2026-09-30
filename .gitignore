@@ -1,0 +1,44 @@
+# Build output
+bin/
+obj/
+publish/
+[Dd]ebug/
+[Rr]elease/
+*.zip
+
+# Visual Studio / Rider / VS Code
+.vs/
+.vscode/
+.idea/
+*.user
+*.suo
+*.userprefs
+*.rsuser
+*.DotSettings.user
+
+# Test results and coverage
+TestResults/
+*.trx
+coverage*/
+*.coverage
+
+# NuGet
+.nuget/
+*.nupkg
+packages/
+
+# Audio: never commit recordings (synthetic smoke-test clips come from windows/tools/Plainspoken.Smoke/make-clips.sh)
+*.wav
+
+# Local settings, keys and logs: never commit
+settings.json
+*.local.json
+.env
+*.key
+logs/
+!shared/settings.schema.json
+
+# Misc
+*.whl
+.DS_Store
+Thumbs.db
