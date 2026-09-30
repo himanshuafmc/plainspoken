@@ -19,7 +19,7 @@
   </PropertyGroup>
   <ItemGroup>
     <!-- Microphone capture (WASAPI). Pinned to the mature 2.x line; see docs/DECISIONS.md. -->
-    <PackageReference Include="NAudio.Wasapi" Version="2.4.0" />
+    <PackageReference Include="NAudio.Wasapi" Version="3.1.0" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\Plainspoken.Core\Plainspoken.Core.csproj" />
