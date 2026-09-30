@@ -308,3 +308,19 @@ The app is not usable until the notice is accepted.
 ## 9. Privacy
 
 No telemetry, analytics or servers of our own. The only network calls go to the configured Gemini base URL. Logs hold timings, sizes, status codes and sanitised error shapes only.
+
+## 10. Android [Android]
+
+The Android app (v0.2.0) implements this spec with these platform differences. Its Kotlin core is a port of the
+Windows core and is tested against the same `shared/test-fixtures/` (API shapes, errors, settings, text cases).
+
+- **How dictation starts:** Plainspoken is an input method (a keyboard). Its big mic button toggles dictation (§2); while listening it becomes a green ✓, and ✕ cancels. There is no global hotkey. A **Retry** key appears while a saved recording is waiting; Retry from the keyboard inserts at the cursor, Retry from the app's history screen copies.
+- **Audio (§3):** `AudioRecord` captures 16 kHz mono PCM16 directly (source `VOICE_RECOGNITION`, falling back to `MIC`), so no resampling is needed. Blocks of 100 ms feed live streaming.
+- **Insertion (§5):** `InputConnection.commitText`. A space is added in front when the cursor sits right after a word. If the text box has gone (the keyboard was closed while transcribing) or refuses the text, it is copied to the clipboard instead ("Copied — long-press the text box and tap Paste"). The keyboard also has space, comma, full stop, delete (repeats while held) and an enter key that performs the text box's action (Send, Search, …).
+- **Closing the keyboard while listening** stops and transcribes, as if ✓ was tapped.
+- **Password boxes:** the mic is disabled (no audio is recorded or sent). **Incognito text boxes** (`IME_FLAG_NO_PERSONALIZED_LEARNING`): the transcript is not added to history.
+- **Sounds:** start is a short vibration only (a sound would be captured by the microphone that just opened); stop plays the same falling chirp as Windows, plus a vibration. Both follow `recording.sounds`.
+- **Settings (§6):** same JSON format and export/import (a Windows export imports on Android and vice versa). Windows-only fields are kept untouched. `local.apiKeyProtected` is encrypted with an AES-GCM key in the Android Keystore. The app is excluded from backup.
+- **Storage (§7):** in the app's private files: `settings.json`, `history.json`, `pending/`, `logs/plainspoken-yyyyMMdd.log` (same rules as Windows). The log can be exported from Settings for bug reports.
+- **First run (§8):** the home screen is a checklist — get a key, paste and test it, accept the same notice, allow the microphone, turn on the keyboard, choose it — followed by a box to try dictation.
+- **Messages (§4.3):** same meanings, worded for the phone ("tap Retry", "Open app", "Allow").

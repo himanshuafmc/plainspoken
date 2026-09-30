@@ -44,7 +44,20 @@ Windows 10/11 x64 · C# / .NET 10 · WinForms · NAudio for capture · P/Invoke 
 - No personal data anywhere: seed vocabulary is generic product names, smoke-test clips are generated with espeak-ng (`make-clips.sh`) and never committed, and unit-test fixtures contain only synthetic sentences. Commits use the maintainer's GitHub no-reply address.
 - The app icon (speech bubble + sound wave) is original; `assets/plainspoken.svg` is the source and `assets/make_icon.py` renders the `.ico` from it with headless Chromium.
 
+## Android (v0.2.0)
+- **Same repository, one brand, one release.** `windows/` and `android/` live side by side with one README, one issue tracker and one Releases page. Both apps share the `VERSION` file, so every release carries the Windows zip and the Android APK with the same number; the Windows app moved from 0.1.1 to 0.2.0 without changes.
+- **A voice keyboard first, a floating bubble later.** Android has no global hotkey and apps can't type into other apps. An input method is Android's official way to put text into any text box, needs only the microphone permission and is allowed on the Play Store. A floating bubble (closest to the Windows mini button) needs "display over other apps" plus an Accessibility service, which triggers strong warnings and Play Store restrictions; it is planned as an option.
+- **The core is plain Kotlin in its own Gradle build** (`android/core`), a port of the Windows core, so it builds and tests on any machine without the Android SDK. Both test suites read the same `shared/test-fixtures/` (API responses, errors, an exported settings file, and `text-cases.json` for joining and spacing), which keeps the two apps' behaviour identical.
+- **Framework views, no AndroidX.** The app's only libraries are OkHttp and the kotlinx libraries (all on Maven Central). That keeps the APK small, the dependency list short for an open-source app, and let the app code be compile-checked against the Android framework on a machine that cannot download the Android SDK.
+- **Package name `app.plainspoken`** (permanent: it identifies the app for updates and on the Play Store). **minSdk 26** (Android 8.0): `java.time` and `java.util.Base64` are available without desugaring; **targetSdk 35**, with edge-to-edge insets handled.
+- **Minification is off** for now, so the release APK runs exactly the tested classes; it can be turned on once real-device testing covers it.
+- **Privacy on the phone:** the key is encrypted with an Android Keystore key that never leaves the device; backup is off; the mic is disabled in password boxes; incognito text boxes don't add to history.
+- **Start feedback is a vibration, not a sound**, because the microphone opens at the same moment and would record the chirp (and a clip with a chirp would pass the silence check and waste a free request).
+- **Signing:** the release APK is signed in GitHub Actions with a key stored only in repository secrets; the release job refuses to publish an APK signed with anything else. Builds without the secrets (forks, test builds) use a throwaway debug key and are named `…-test.apk`.
+- **Not on the Play Store yet.** It needs a developer account ($25, identity verification, a public contact email) and, for new personal accounts, a 14-day closed test with 12 testers. The APK on the Releases page is the official download until then.
+
 ## CI and releases
 - Push runs on every branch and `v*` tags; same-repo `pull_request` runs are skipped because the push run on the same commit already reports to the PR.
-- A release is created for a pushed `v*` tag (which must equal `v` + `VersionPrefix`), or for a branch push whose commit message contains `[release]` (then CI creates the tag). The second path exists because cloud dev sessions can push branches but not tags.
+- One workflow (`build.yml`) runs the Windows core tests, the Windows build and the Android build (core tests, APK, lint) on every push.
+- A release is created for a pushed `v*` tag (which must equal `v` + the `VERSION` file), or for a branch push whose commit message contains `[release]` (then CI creates the tag). The second path exists because cloud dev sessions can push branches but not tags. The release carries both the Windows zip and the signed Android APK.
 - Release notes come from the matching `CHANGELOG.md` section.
