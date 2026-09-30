@@ -17,7 +17,7 @@ It is built with the Android Gradle Plugin 9, which compiles the Kotlin code its
 
 ## Build and test
 
-Needs JDK 17 and, for the app, the Android SDK (API 35).
+Needs JDK 17 and, for the app, the Android SDK (API 37).
 
 ```
 cd android

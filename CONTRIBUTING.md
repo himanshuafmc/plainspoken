@@ -18,7 +18,7 @@ dotnet build windows/Plainspoken.sln -p:EnableWindowsTargeting=true
 dotnet test windows/tests/Plainspoken.Core.Tests
 ```
 
-**Android app** — needs JDK 17; the app also needs the Android SDK (API 35). The core tests run anywhere.
+**Android app** — needs JDK 17; the app also needs the Android SDK (API 37). The core tests run anywhere.
 
 ```
 cd android

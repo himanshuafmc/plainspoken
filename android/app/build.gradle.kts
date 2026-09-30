@@ -14,7 +14,8 @@ val keystorePath: String? = System.getenv("PLAINSPOKEN_KEYSTORE")?.takeIf { it.i
 
 android {
     namespace = "app.plainspoken"
-    compileSdk = 35
+    // OkHttp 5 needs compileSdk 37 or later. targetSdk stays 35, so the app's behaviour on phones is unchanged.
+    compileSdk = 37
 
     defaultConfig {
         applicationId = "app.plainspoken"
