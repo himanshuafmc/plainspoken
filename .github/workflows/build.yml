@@ -29,11 +29,11 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-dotnet@v4
+      - uses: actions/checkout@v7
+      - uses: actions/setup-dotnet@v6
         with:
           dotnet-version: '10.0.x'
-      - uses: actions/cache@v4
+      - uses: actions/cache@v6
         with:
           path: ${{ env.NUGET_PACKAGES }}
           key: nuget-${{ runner.os }}-${{ hashFiles('windows/**/*.csproj', 'windows/Directory.Build.props') }}
@@ -46,11 +46,11 @@ jobs:
     runs-on: windows-latest
     timeout-minutes: 15
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-dotnet@v4
+      - uses: actions/checkout@v7
+      - uses: actions/setup-dotnet@v6
         with:
           dotnet-version: '10.0.x'
-      - uses: actions/cache@v4
+      - uses: actions/cache@v6
         with:
           path: ${{ env.NUGET_PACKAGES }}
           key: nuget-${{ runner.os }}-${{ hashFiles('windows/**/*.csproj', 'windows/Directory.Build.props') }}
@@ -84,7 +84,7 @@ jobs:
           $zip = "Plainspoken-win-x64-${{ steps.ver.outputs.version }}.zip"
           Compress-Archive -Path publish/* -DestinationPath $zip -CompressionLevel Optimal
           Get-ChildItem publish, $zip | Format-Table Name, Length
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: windows
           path: Plainspoken-win-x64-${{ steps.ver.outputs.version }}.zip
@@ -101,12 +101,12 @@ jobs:
       run:
         working-directory: android
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-java@v4
+      - uses: actions/checkout@v7
+      - uses: actions/setup-java@v6
         with:
           distribution: temurin
           java-version: '17'
-      - uses: gradle/actions/setup-gradle@v4
+      - uses: gradle/actions/setup-gradle@v5
       - name: Core tests
         run: ./gradlew -p core test --console=plain
       - name: Signing key
@@ -134,13 +134,13 @@ jobs:
           suffix=$([ "${{ steps.key.outputs.signed }}" = "true" ] && echo "" || echo "-test")
           cp app/build/outputs/apk/release/app-release.apk "../Plainspoken-android-$v$suffix.apk"
           ls -l ../*.apk
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: android
           path: Plainspoken-android-*.apk
           if-no-files-found: error
           retention-days: 30
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         if: always()
         with:
           name: android-lint-report
@@ -156,16 +156,16 @@ jobs:
     permissions:
       contents: write
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           sparse-checkout: |
             CHANGELOG.md
             VERSION
           sparse-checkout-cone-mode: false
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v8
         with:
           name: windows
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v8
         with:
           name: android
       - name: Check version, tag and signing
