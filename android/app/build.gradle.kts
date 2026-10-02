@@ -74,5 +74,5 @@ kotlin {
 
 dependencies {
     implementation("app.plainspoken:core")
-    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.10.2")
+    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.11.0")
 }
