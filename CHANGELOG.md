@@ -2,6 +2,18 @@
 
 All notable changes to Plainspoken. Versions follow [Semantic Versioning](https://semver.org/).
 
+## [0.2.2] - 2026-10-10
+
+A maintenance update for both apps. Nothing changes in how Plainspoken works; it's built with newer, up-to-date components.
+
+### Android
+- Built with a newer version of Kotlin, the language the app is written in, plus newer helper libraries for background work and for reading Google's replies.
+- Installs over 0.2.1 as a normal update; your key, settings and history stay.
+
+### Windows
+- No changes to the app itself; it moves to version 0.2.2 so both apps share one version number.
+- Replace your old `Plainspoken.exe` with the new one if you like; your settings and history stay.
+
 ## [0.2.1] - 2026-09-30
 
 A maintenance update for both apps. Nothing changes in how Plainspoken works; it's built with newer, up-to-date components.
