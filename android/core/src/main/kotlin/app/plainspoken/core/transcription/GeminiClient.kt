@@ -220,7 +220,7 @@ class GeminiClient(
                 val raw = try {
                     response.use { r ->
                         val headers = r.headers.names().associate { it.lowercase() to r.headers.values(it).joinToString(",") }
-                        RawResponse(r.code, r.body?.string().orEmpty(), headers)
+                        RawResponse(r.code, r.body.string().orEmpty(), headers)
                     }
                 } catch (e: IOException) {
                     if (cont.isActive) cont.resumeWithException(e)
