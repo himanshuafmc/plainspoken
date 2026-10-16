@@ -4,8 +4,8 @@ import org.jetbrains.kotlin.gradle.dsl.JvmTarget
 // storage and the dictation state machine. A port of windows/src/Plainspoken.Core that follows
 // docs/SPEC.md; both are tested against the files in shared/test-fixtures.
 plugins {
-    kotlin("jvm") version "2.4.20"
-    kotlin("plugin.serialization") version "2.4.20"
+    kotlin("jvm") version "2.4.21"
+    kotlin("plugin.serialization") version "2.4.21"
 }
 
 group = "app.plainspoken"
