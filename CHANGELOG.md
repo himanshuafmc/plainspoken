@@ -2,6 +2,26 @@
 
 All notable changes to Plainspoken. Versions follow [Semantic Versioning](https://semver.org/).
 
+## [0.4.0] - 2026-10-18
+
+A big update for **Android**: use any speech service you like, and get cleaner text, faster.
+
+### Android
+- **Choose your speech service.** Besides Gemini, Plainspoken now works with **Sarvam** (Saaras, built for Indian languages and Hinglish), **OpenAI** or any OpenAI-compatible service (such as Groq or your own Whisper server), **Deepgram** and **ElevenLabs** — each with your own key. Pick a main service and up to two backups in Settings → Speech services.
+- **Never stuck waiting.** If the service in use fails, runs out of credit or is slow, Plainspoken switches to the next one by itself — after a few seconds it even asks the backup at the same time and uses whichever answers first. A service that keeps failing is skipped for 15 minutes.
+- **Cleaner text.** Raw text from Sarvam, OpenAI-compatible services, Deepgram and ElevenLabs is tidied up: "um"s, "aaa"s and repeats removed, punctuation and grammar fixed, your self-corrections applied ("5 baje, nahi, 6 baje" becomes "6 baje"), lists formatted. Your words and your language stay as you spoke them — Hinglish is never translated. It uses Gemini by default, or any OpenAI-compatible service.
+- **Hindi words in Roman letters or Devanagari** — your choice.
+- **Faster:** Sarvam and Deepgram can stream while you speak, and uploads are compressed (about eight times smaller) for every service except Gemini.
+- **Hold to talk:** hold the mic while you speak and let go. Tapping works as before.
+- **Snippets:** say a phrase like "insert my address" and Plainspoken types the text you saved for it.
+- **Learns your words:** fix a misheard name with your usual keyboard, come back to Plainspoken, and it offers to add the name to your vocabulary.
+- **Speed and cost:** a new screen shows how fast each service has been for you, how often it failed and, once you enter its price, what it cost this month.
+- The Gemini "general model" now defaults to the more accurate gemini-3.5-flash.
+- Installs over 0.2.2 as a normal update; your Gemini key, settings and history stay.
+
+### Windows
+- No changes to the app itself; it moves to version 0.4.0 so both apps share one version number. Settings files exported from the Android app still import on Windows (the new Android-only settings are ignored there).
+
 ## [0.2.2] - 2026-10-10
 
 A maintenance update for both apps. Nothing changes in how Plainspoken works; it's built with newer, up-to-date components.
@@ -65,6 +85,8 @@ The first public release. 🎉
 - Windows may show "Windows protected your PC" the first time: click More info → Run anyway. The app isn't code-signed yet.
 - Windows 10/11, 64-bit. No installer; unzip and run.
 
+[0.4.0]: https://github.com/himanshuafmc/plainspoken/releases/tag/v0.4.0
+[0.2.2]: https://github.com/himanshuafmc/plainspoken/releases/tag/v0.2.2
 [0.2.1]: https://github.com/himanshuafmc/plainspoken/releases/tag/v0.2.1
 [0.2.0]: https://github.com/himanshuafmc/plainspoken/releases/tag/v0.2.0
 [0.1.1]: https://github.com/himanshuafmc/plainspoken/releases/tag/v0.1.1

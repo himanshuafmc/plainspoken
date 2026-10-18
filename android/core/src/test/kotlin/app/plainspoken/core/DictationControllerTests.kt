@@ -13,7 +13,7 @@ import app.plainspoken.core.dictation.TextInserter
 import app.plainspoken.core.dictation.UserAction
 import app.plainspoken.core.dictation.UserMessage
 import app.plainspoken.core.dictation.UserMessages
-import app.plainspoken.core.settings.EngineKind
+import app.plainspoken.core.settings.SpeechService
 import app.plainspoken.core.settings.PlainspokenSettings
 import app.plainspoken.core.storage.HistoryStore
 import app.plainspoken.core.storage.PendingStore
@@ -288,7 +288,21 @@ class DictationControllerTests {
             calls++
             gate?.await()
             error?.let { throw it }
-            return TranscriptionOutcome(result, EngineKind.TRANSCRIBE)
+            return TranscriptionOutcome(result, SpeechService.GEMINI)
+        }
+
+        val finished = ArrayList<Pair<String, SpeechService>>()
+
+        override suspend fun finish(
+            raw: String,
+            service: SpeechService,
+            request: TranscriptionRequest,
+            settings: PlainspokenSettings,
+            status: ((String) -> Unit)?,
+            listenMillis: Long,
+        ): TranscriptionOutcome {
+            finished.add(raw to service)
+            return TranscriptionOutcome(raw, service)
         }
 
         override fun warmUp(settings: PlainspokenSettings) {
@@ -372,6 +386,7 @@ class DictationControllerTests {
     }
 
     class FakeSession(private val owner: FakeLiveTranscriber) : LiveSession {
+        override val service = SpeechService.SARVAM
         var pushed = 0
         var closed = false
 

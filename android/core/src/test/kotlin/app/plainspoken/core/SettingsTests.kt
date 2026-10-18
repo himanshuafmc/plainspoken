@@ -1,6 +1,10 @@
 package app.plainspoken.core
 
+import app.plainspoken.core.settings.CleanupProvider
 import app.plainspoken.core.settings.EngineKind
+import app.plainspoken.core.settings.HindiScript
+import app.plainspoken.core.settings.Snippet
+import app.plainspoken.core.settings.SpeechService
 import app.plainspoken.core.settings.InsertionMethod
 import app.plainspoken.core.settings.LanguagePreset
 import app.plainspoken.core.settings.LanguagePresets
@@ -158,6 +162,68 @@ class SettingsTests {
         val languages = t["languages"]!!.jsonObject["enum"]!!.jsonArray.map { it.jsonPrimitive.content }.toSet()
         assertEquals(setOf("englishHindi", "auto", "english"), languages)
         assertNull(PlainspokenSettings().local.apiKeyProtected)
+    }
+}
+
+class SettingsVersion2Tests {
+    @Test
+    fun `version 1 files become a service order`() {
+        val generateFirst = SettingsJson.deserialize("""{"schemaVersion":1,"transcription":{"engine":"generate","useBackupEngineWhenLimited":true,"generateModel":"gemini-3.5-flash-lite"}}""")
+        assertEquals(listOf("gemini-general", "gemini"), generateFirst.transcription.serviceOrder)
+        assertEquals("gemini-3.5-flash", generateFirst.transcription.generateModel)
+        assertEquals(2, generateFirst.schemaVersion)
+
+        val noBackup = SettingsJson.deserialize("""{"schemaVersion":1,"transcription":{"engine":"transcribe","useBackupEngineWhenLimited":false,"generateModel":"my-model"}}""")
+        assertEquals(listOf("gemini"), noBackup.transcription.serviceOrder)
+        assertEquals("my-model", noBackup.transcription.generateModel)
+        assertFalse(noBackup.transcription.useBackupEngineWhenLimited)
+    }
+
+    @Test
+    fun `the service order drops unknown ids and repeats and keeps at most three`() {
+        val s = SettingsJson.deserialize("""{"schemaVersion":2,"transcription":{"serviceOrder":["quantum","sarvam","sarvam","deepgram","gemini","openai"]}}""")
+        assertEquals(listOf("sarvam", "deepgram", "gemini"), s.transcription.serviceOrder)
+        assertEquals(EngineKind.TRANSCRIBE, s.transcription.engine) // Windows fields follow the Gemini choice
+        assertFalse(s.transcription.useBackupEngineWhenLimited)
+        assertEquals(listOf("gemini"), SettingsJson.deserialize("""{"schemaVersion":2,"transcription":{"serviceOrder":[]}}""").transcription.serviceOrder)
+    }
+
+    @Test
+    fun `per-service settings get their defaults and bad values are repaired`() {
+        val s = SettingsJson.deserialize("""{"schemaVersion":2,"transcription":{"services":{"sarvam":{"model":" ","apiBaseUrl":"nope","pricePerHour":-5},"openai":{"apiBaseUrl":"https://api.groq.com/openai/v1/"}}}}""")
+        val t = s.transcription
+        assertEquals("saaras:v3", t.services.sarvam.model)
+        assertEquals("https://api.sarvam.ai", t.services.sarvam.apiBaseUrl)
+        assertEquals(0.0, t.services.sarvam.pricePerHour)
+        assertEquals("https://api.groq.com/openai/v1", t.baseUrlOf(SpeechService.OPENAI))
+        assertEquals("nova-3", t.modelOf(SpeechService.DEEPGRAM))
+        assertEquals("gemini-3.5-transcribe", t.modelOf(SpeechService.GEMINI))
+        assertFalse(PlainspokenSettings().normalize().transcription.services.elevenlabs.vocabularyHints)
+        assertEquals(30.0, PlainspokenSettings().normalize().transcription.services.sarvam.pricePerHour)
+    }
+
+    @Test
+    fun `snippets are cleaned and exported, keys never are`() {
+        val s = PlainspokenSettings().apply {
+            snippets = listOf(Snippet(" my  address ", " 1 Road "), Snippet("My address", "dup"), Snippet("", "x"), Snippet("x".repeat(61), "y"))
+            local.apiKeysProtected = mapOf("sarvam" to "blob-" + FakeKey.value)
+        }.normalize()
+        assertEquals(1, s.snippets.size)
+        assertEquals("my address", s.snippets[0].trigger)
+        assertEquals("1 Road", s.snippets[0].text)
+        val exported = SettingsJson.export(s)
+        assertTrue("my address" in exported)
+        assertFalse("blob-" in exported || "apiKeysProtected" in exported)
+    }
+
+    @Test
+    fun `defaults use Gemini with clean-up on and Roman Hindi`() {
+        val t = PlainspokenSettings().normalize().transcription
+        assertEquals(listOf(SpeechService.GEMINI, SpeechService.GEMINI_GENERAL), t.orderedServices())
+        assertEquals(CleanupProvider.GEMINI, t.cleanup.provider)
+        assertEquals(HindiScript.ROMAN, t.hindiScript)
+        assertEquals(4, t.hedgeSeconds)
+        assertTrue(t.compressAudio)
     }
 }
 

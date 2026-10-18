@@ -91,27 +91,39 @@ object UserMessages {
     const val NOTHING_TO_RETRY = "Nothing to retry"
     const val THIRTY_SECONDS_LEFT = "30 s left"
 
-    val NO_KEY = UserMessage("Add your free Gemini API key in the Plainspoken app to start.", UserAction.OPEN_SETTINGS)
+    val NO_KEY = UserMessage("Add a key for your speech service in the Plainspoken app to start.", UserAction.OPEN_SETTINGS)
     val UNEXPECTED = UserMessage("Something went wrong. Your recording is saved — tap Retry.", UserAction.RETRY)
     val INSERT_FAILED = UserMessage("Couldn't insert the text. It is in History in the Plainspoken app.")
     val GENERIC = UserMessage("Something went wrong. Please try again.")
 
-    fun forError(e: TranscriptionException, now: Instant, zone: ZoneId): UserMessage = when (e.kind) {
-        TranscriptionErrorKind.NO_KEY -> NO_KEY
-        TranscriptionErrorKind.INVALID_KEY ->
-            UserMessage("Your Gemini API key was not accepted. Check it in Plainspoken settings. Your recording is saved.", UserAction.OPEN_SETTINGS)
-        TranscriptionErrorKind.DAILY_QUOTA ->
-            UserMessage("Free daily limit reached. Resets at ${QuotaReset.formatNextReset(now, zone)}. Your recording is saved.", UserAction.RETRY)
-        TranscriptionErrorKind.RATE_LIMITED ->
-            UserMessage("Too many requests right now. Your recording is saved — tap Retry in a minute.", UserAction.RETRY)
-        TranscriptionErrorKind.NETWORK ->
-            UserMessage("No internet connection. Your recording is saved — tap Retry when you're back online.", UserAction.RETRY)
-        TranscriptionErrorKind.TIMEOUT -> UserMessage("Google took too long to answer. Your recording is saved — tap Retry.", UserAction.RETRY)
-        TranscriptionErrorKind.SERVER -> UserMessage("Google's service had a problem. Your recording is saved — tap Retry.", UserAction.RETRY)
-        TranscriptionErrorKind.MODEL_NOT_FOUND ->
-            UserMessage("The speech model isn't available. Check the model name in Settings → Advanced.", UserAction.OPEN_SETTINGS)
-        TranscriptionErrorKind.BLOCKED -> UserMessage("Google declined to transcribe this recording. It is saved — you can tap Retry.", UserAction.RETRY)
-        else -> UserMessage("Something unexpected came back from Google. Your recording is saved — tap Retry.", UserAction.RETRY)
+    fun forError(e: TranscriptionException, now: Instant, zone: ZoneId): UserMessage {
+        val service = e.service
+        // Gemini errors name Google (whose servers they are); the others name the service.
+        val who = if (service == null || service.isGemini) "Google" else service.shortName.replaceFirstChar { it.uppercase() }
+        val keyName = if (service == null || service.isGemini) "Gemini API key" else "${service.shortName.removePrefix("the ")} key"
+        return when (e.kind) {
+            TranscriptionErrorKind.NO_KEY -> NO_KEY
+            TranscriptionErrorKind.INVALID_KEY ->
+                UserMessage("Your $keyName was not accepted. Check it in Plainspoken settings. Your recording is saved.", UserAction.OPEN_SETTINGS)
+            TranscriptionErrorKind.DAILY_QUOTA ->
+                if (service == null || service.isGemini) {
+                    UserMessage("Free daily limit reached. Resets at ${QuotaReset.formatNextReset(now, zone)}. Your recording is saved.", UserAction.RETRY)
+                } else {
+                    UserMessage("$who's daily limit is reached. Your recording is saved — tap Retry later.", UserAction.RETRY)
+                }
+            TranscriptionErrorKind.NO_CREDITS ->
+                UserMessage("Your $who account is out of credits or over its limit. Your recording is saved.", UserAction.RETRY)
+            TranscriptionErrorKind.RATE_LIMITED ->
+                UserMessage("Too many requests right now. Your recording is saved — tap Retry in a minute.", UserAction.RETRY)
+            TranscriptionErrorKind.NETWORK ->
+                UserMessage("No internet connection. Your recording is saved — tap Retry when you're back online.", UserAction.RETRY)
+            TranscriptionErrorKind.TIMEOUT -> UserMessage("$who took too long to answer. Your recording is saved — tap Retry.", UserAction.RETRY)
+            TranscriptionErrorKind.SERVER -> UserMessage("$who's service had a problem. Your recording is saved — tap Retry.", UserAction.RETRY)
+            TranscriptionErrorKind.MODEL_NOT_FOUND ->
+                UserMessage("The speech model isn't available. Check the model name in Plainspoken settings.", UserAction.OPEN_SETTINGS)
+            TranscriptionErrorKind.BLOCKED -> UserMessage("$who declined to transcribe this recording. It is saved — you can tap Retry.", UserAction.RETRY)
+            else -> UserMessage("Something unexpected came back from $who. Your recording is saved — tap Retry.", UserAction.RETRY)
+        }
     }
 
     fun forRecorder(kind: RecorderErrorKind): UserMessage = when (kind) {

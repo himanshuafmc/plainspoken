@@ -67,6 +67,53 @@ object WavEncoder {
         if (sampleRate <= 0) 0.0 else sampleCount.toDouble() / sampleRate
 }
 
+/** Audio in a compressed format (AAC in an MP4 container on Android), for services that accept it. */
+class EncodedAudio(val bytes: ByteArray, val mimeType: String, val fileName: String)
+
+/** Turns 16 kHz mono PCM16 into [EncodedAudio], or null if this device can't. Implemented per platform. */
+fun interface AudioCompressor {
+    fun compress(samples: ShortArray, sampleRate: Int): EncodedAudio?
+}
+
+/** Splits long recordings for services that only accept short requests (Sarvam: 30 s), cutting at quiet moments. */
+object AudioChunker {
+    private const val WINDOW_SECONDS = 0.1
+
+    /**
+     * Pieces of at most [maxSeconds]. Each cut is placed at the quietest 100 ms within the last [searchSeconds]
+     * before the limit, so words aren't split when the speaker pauses.
+     */
+    fun split(samples: ShortArray, sampleRate: Int, maxSeconds: Double, searchSeconds: Double = 5.0): List<ShortArray> {
+        require(sampleRate > 0 && maxSeconds > 1)
+        val max = (maxSeconds * sampleRate).toInt()
+        if (samples.size <= max) return listOf(samples)
+        val window = max(1, (WINDOW_SECONDS * sampleRate).toInt())
+        val search = min(max - window, (searchSeconds * sampleRate).toInt())
+        val pieces = ArrayList<ShortArray>()
+        var start = 0
+        while (samples.size - start > max) {
+            var cut = start + max
+            var quietest = Double.MAX_VALUE
+            var pos = start + max - search
+            while (pos + window <= start + max) {
+                val level = ClipAnalyzer.rms(samples, pos, window)
+                if (level < quietest) {
+                    quietest = level
+                    cut = pos + window / 2
+                }
+
+                pos += window / 2
+            }
+
+            pieces.add(samples.copyOfRange(start, cut))
+            start = cut
+        }
+
+        pieces.add(samples.copyOfRange(start, samples.size))
+        return pieces
+    }
+}
+
 enum class ClipVerdict { OK, TOO_SHORT, SILENT }
 
 /** Decides whether a recording is worth sending (avoids wasting free-tier requests). */

@@ -3,6 +3,7 @@ package app.plainspoken.core.transcription
 import app.plainspoken.core.logging.Log
 import app.plainspoken.core.logging.Redactor
 import app.plainspoken.core.settings.PlainspokenSettings
+import app.plainspoken.core.settings.SpeechService
 import app.plainspoken.core.settings.TranscriptionMode
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineScope
@@ -34,8 +35,11 @@ import java.util.Base64
 import java.util.concurrent.TimeUnit
 import kotlin.coroutines.cancellation.CancellationException
 
-/** One dictation streamed to the live model while the user speaks. */
+/** One dictation streamed to a speech service while the user speaks. */
 interface LiveSession : AutoCloseable {
+    /** The service doing the streaming (its raw text may still need the clean-up step). */
+    val service: SpeechService
+
     /** Queues 16 kHz mono PCM16 samples. Safe to call from any thread; never blocks or throws. */
     fun push(samples: ShortArray)
 
@@ -58,9 +62,13 @@ interface LiveTranscriber {
 
 /** Minimal WebSocket abstraction so the protocol can be unit-tested without a network. */
 interface LiveSocket {
-    suspend fun connect(uri: URI, apiKey: String?)
+    /** Opens the socket with these handshake headers (the service's auth header). */
+    suspend fun connect(uri: URI, headers: Map<String, String>)
 
     suspend fun send(json: String)
+
+    /** A binary frame (Deepgram takes raw PCM this way). */
+    suspend fun sendBinary(bytes: ByteArray)
 
     /** Next message as text, or null once the server has closed the connection. */
     suspend fun receive(): String?
@@ -82,10 +90,8 @@ class OkHttpLiveSocket(http: OkHttpClient) : LiveSocket {
     override var closeReason: String? = null
         private set
 
-    override suspend fun connect(uri: URI, apiKey: String?) {
-        val request = Request.Builder().url(uri.toString()).apply {
-            if (!apiKey.isNullOrBlank()) header(GeminiClient.API_KEY_HEADER, apiKey.trim())
-        }.build()
+    override suspend fun connect(uri: URI, headers: Map<String, String>) {
+        val request = Request.Builder().url(uri.toString()).apply { headers.forEach { (k, v) -> header(k, v) } }.build()
         ws = client.newWebSocket(request, object : WebSocketListener() {
             override fun onOpen(webSocket: WebSocket, response: Response) {
                 opened.complete(Unit)
@@ -131,6 +137,10 @@ class OkHttpLiveSocket(http: OkHttpClient) : LiveSocket {
 
     override suspend fun send(json: String) {
         if (ws?.send(json) != true) throw IOException("socket closed")
+    }
+
+    override suspend fun sendBinary(bytes: ByteArray) {
+        if (ws?.send(ByteString.of(*bytes)) != true) throw IOException("socket closed")
     }
 
     override suspend fun receive(): String? = incoming.receive()
@@ -248,6 +258,7 @@ class GeminiLiveTranscriber(
 }
 
 internal class GeminiLiveSession(private val owner: GeminiLiveTranscriber, private val settings: PlainspokenSettings) : LiveSession {
+    override val service = SpeechService.GEMINI
     private val audio = Channel<ShortArray>(Channel.UNLIMITED)
 
     @Volatile
@@ -302,7 +313,11 @@ internal class GeminiLiveSession(private val owner: GeminiLiveTranscriber, priva
             try {
                 try {
                     withTimeout(owner.stepTimeout.toMillis()) {
-                        socket.connect(GeminiLiveTranscriber.endpoint(settings.transcription.apiBaseUrl, version), owner.key)
+                        val key = owner.key?.trim()
+                        socket.connect(
+                            GeminiLiveTranscriber.endpoint(settings.transcription.apiBaseUrl, version),
+                            if (key.isNullOrEmpty()) emptyMap() else mapOf(GeminiClient.API_KEY_HEADER to key),
+                        )
                     }
                 } catch (e: TimeoutCancellationException) {
                     log.warn("live: connect $version timed out")

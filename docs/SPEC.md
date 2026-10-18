@@ -324,3 +324,59 @@ Windows core and is tested against the same `shared/test-fixtures/` (API shapes,
 - **Storage (§7):** in the app's private files: `settings.json`, `history.json`, `pending/`, `logs/plainspoken-yyyyMMdd.log` (same rules as Windows). The log can be exported from Settings for bug reports.
 - **First run (§8):** the home screen is a checklist — get a key, paste and test it, accept the same notice, allow the microphone, turn on the keyboard, choose it — followed by a box to try dictation.
 - **Messages (§4.3):** same meanings, worded for the phone ("tap Retry", "Open app", "Allow").
+
+### 10.1 Any speech service, clean-up and dictation extras [Android 0.4.0]
+
+The Windows app still uses Gemini only (§4); it gets the following in 0.5.0.
+
+- **Services.** A dictation can be transcribed by: `gemini` (§4.1, the transcribe model), `gemini-general` (§4.2, a general
+  model listening to the audio, default `gemini-3.5-flash`), `sarvam` (Saaras, POST `/speech-to-text`, header
+  `api-subscription-key`, ≤ 30 s per request — longer audio is split at the quietest 100 ms in the last 5 s before each
+  30 s mark and the parts are sent three at a time), `openai` (any OpenAI-style `POST {base}/audio/transcriptions`, Bearer
+  key, ≤ 24 MB per request), `deepgram` (POST `/v1/listen`, header `Authorization: Token …`) and `elevenlabs` (Scribe,
+  POST `/v1/speech-to-text`, header `xi-api-key`). Each has its own encrypted key (both Gemini services share one), model,
+  address, vocabulary-hints switch, optional streaming and a user-entered price per hour.
+- **Language and script mapping.** English + Hindi and Auto-detect let each service detect the language (Sarvam
+  `unknown`, Deepgram `multi`, no language for OpenAI and ElevenLabs); English sends `en`/`en-IN`. Hindi words follow
+  `hindiScript`: Sarvam mode `translit` (Roman), `codemix` (Devanagari); OpenAI gets a one-line example in that script
+  as its prompt. Verbatim maps to Sarvam `verbatim`, Deepgram `filler_words=true`; Smart sets ElevenLabs `no_verbatim`
+  (scribe_v2).
+- **Order and switching.** `serviceOrder` lists up to three services, main first. Services without a key are skipped.
+  If a service fails (any error), the next starts at once. If it hasn't answered after `hedgeSeconds` + 15 % of the
+  recording length (at most 20 s), the next is asked too and the first answer wins; the others are cancelled. With a
+  backup in the order, 5xx answers are not retried on the same service. A service that fails twice in a row — or once
+  with "out of credits" or a daily limit — is skipped for 15 minutes while another is available; saving its key clears
+  that. When all fail, the main service's error is shown, naming the service (Gemini errors still name Google).
+- **Compression.** When `compressAudio` is on and a service in the order accepts it, the recording is encoded once to
+  AAC-LC 32 kbit/s in MP4 (Android's encoder) and sent to those services; Gemini always gets the WAV. On any encoder
+  problem the WAV is used.
+- **Clean-up (Smart mode).** Text from services that don't tidy it themselves (all but the Gemini services, unless
+  `cleanup.alsoGemini`) is sent with the vocabulary to `cleanup.provider`: Gemini (`generateContent`, text only,
+  temperature 0, `thinkingLevel: minimal` on Gemini 3 models, default `gemini-3.5-flash`) or any OpenAI-style
+  `/chat/completions`. The instructions (`CleanupPrompt`) remove fillers, stutters and false starts, apply
+  self-corrections, fix punctuation and grammar, turn spoken punctuation commands into punctuation, format clear lists,
+  write numbers the standard way and keep the script setting — and never translate, summarise, answer or add anything.
+  Dictations under 3 words skip it. The result is refused (and the raw text used) if it is empty while words were
+  spoken, under 40 % of the words (8+ words), or over 160 % + 8 words. Whenever the clean-up is off, fails or is refused,
+  a local filter removes only unambiguous filler sounds (um, uh, erm, hmm, aaa — not "aa"). Tuned with
+  `shared/test-fixtures/cleanup-cases.json`.
+- **Streaming.** When the main usable service can stream and streaming is on for it, audio streams while the user
+  speaks: Gemini (§4.1a), Sarvam (`wss://…/speech-to-text/ws`, base64 PCM in JSON, `{"type":"flush"}` at the end, the
+  session ends 0.9 s after the last reply) or Deepgram (`wss://…/v1/listen`, binary linear16, `{"type":"Finalize"}`,
+  ends at the reply marked `from_finalize`). The streamed raw text goes through the same clean-up. After two failed
+  streams in a row, streaming for that service pauses 15 minutes.
+- **Snippets.** `snippets` maps spoken triggers to text. A dictation that is only a trigger (ignoring case and
+  punctuation) becomes its text; a trigger inside a sentence is replaced. The clean-up is told to keep triggers word for word.
+- **Hold-to-talk.** On the keyboard, a press that starts dictation and lasts ≥ 0.5 s finishes it on release; a shorter
+  tap keeps listening until the ✓ is tapped.
+- **Learning vocabulary.** After inserting, the keyboard remembers the text (not for incognito or password boxes). When
+  it is shown again in the same app within 10 minutes and the text around the cursor has changed, words the user typed
+  in place of inserted words — or whose capitals changed, not at a sentence start — are offered ("Add “Sameer” to your
+  vocabulary?"); neighbouring capitalised words form one name.
+- **Stats.** For each dictation (never any text): service, audio length, time from stop to raw text, clean-up time,
+  success, streamed, backup used, hedged. The last 1,000 are kept in `stats.json`; the Speed and cost screen shows
+  medians per service and minutes × price for this month.
+- **Settings file.** `schemaVersion` 2. A version 1 file becomes a service order: `engine` decides the main Gemini
+  service, `useBackupEngineWhenLimited` adds the other; a general model still at the old default
+  `gemini-3.5-flash-lite` moves to `gemini-3.5-flash`. `engine` and `useBackupEngineWhenLimited` are kept in step with
+  the order, so the Windows app reads an Android file sensibly; it ignores the new fields.

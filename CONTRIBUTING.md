@@ -26,6 +26,10 @@ cd android
 ./gradlew :app:assembleRelease :app:lintRelease
 ```
 
+The Android clean-up step is tuned with `shared/test-fixtures/cleanup-cases.json`; `./gradlew -p core cleanupEval` (in
+`android/`, with `GEMINI_API_KEY` set) scores it against the real API. Add a case when you change the clean-up
+instructions.
+
 The optional live smoke test calls the real Gemini API with your own key (it never runs in CI):
 
 ```

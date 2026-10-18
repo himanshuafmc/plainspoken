@@ -38,6 +38,16 @@
             android:exported="false"
             android:label="@string/history_title" />
 
+        <activity
+            android:name=".ServiceActivity"
+            android:exported="false"
+            android:windowSoftInputMode="adjustResize" />
+
+        <activity
+            android:name=".StatsActivity"
+            android:exported="false"
+            android:label="@string/stats_title" />
+
         <service
             android:name=".keyboard.PlainspokenKeyboard"
             android:exported="true"

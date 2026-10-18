@@ -159,3 +159,21 @@ For each: [ ] tap mic → it turns into a green ✓ with a moving halo and "List
 - [ ] Export settings → open the file → **no key inside**. Import a file exported from Plainspoken for Windows → vocabulary and options match.
 - [ ] Export the log → the file contains timings and error codes, not your words.
 - [ ] Uninstall and reinstall → the key has to be entered again (it was encrypted with a key tied to the old install).
+
+## O. Speech services, clean-up and extras (0.4.0)
+
+- [ ] Settings → Speech services → **Add a backup service** → pick Sarvam → its screen opens. Paste a wrong key → **Test and save** says it was not accepted; the right key → "Key works".
+- [ ] Repeat for each service you use (OpenAI-compatible, Deepgram, ElevenLabs). For Groq, set the address to `https://api.groq.com/openai/v1` and the model to `whisper-large-v3-turbo`.
+- [ ] **Move up** makes a service the main one; **Remove** takes it out. The keyboard uses the new main service on the next dictation.
+- [ ] With each service as the main one, dictate English, Hindi and Hinglish (5–10 s, with an "um" and a self-correction like "at 5, no, at 6"): text appears, fillers gone, only the correction kept, punctuation right, Hinglish not translated. Time from ✓ to text: Sarvam ____ s, OpenAI ____ s, Deepgram ____ s, ElevenLabs ____ s.
+- [ ] Sarvam and Deepgram with **Stream while you speak** on and off: compare the time to text.
+- [ ] Hindi words setting: Roman letters vs Devanagari → the text follows it (with clean-up on).
+- [ ] Clean-up → **Off**: raw text from Sarvam/Deepgram, with only "um"/"uh" removed. Back to Gemini.
+- [ ] Give the main service a wrong key and keep a working backup: dictation still works (backup used); after two dictations the main one is skipped (the log says "paused").
+- [ ] Turn on airplane mode for 2 seconds right after tapping ✓ (or pick a slow service as main): with "Speed" at 4 seconds the backup is asked too and the first answer is used.
+- [ ] Long dictation with Sarvam as the main service (over 1 minute) → the whole text arrives (Sarvam takes 30 s per request; the app splits).
+- [ ] Hold the mic, speak, let go → text inserted. A quick tap still starts listening until ✓.
+- [ ] Snippets: add "insert my address" → saying just that types the address; saying it inside a sentence replaces only that part.
+- [ ] Dictate a name that comes out wrong, fix it with your usual keyboard, switch back to Plainspoken → "Add “…” to your vocabulary?" → **Add** → the word is in Settings → Vocabulary.
+- [ ] Settings → Speed and cost: each service shows dictations, typical time to text and, after entering a price on its screen, this month's cost.
+- [ ] Export settings: the file has the service order, snippets and clean-up settings, **and no keys**.

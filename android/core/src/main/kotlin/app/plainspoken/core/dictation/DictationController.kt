@@ -63,7 +63,7 @@ class DictationController(
 
     val level: Float get() = recorder.level
 
-    /** Mic / ✓ button. */
+    /** Mic / ✓ button (tap to start and tap again to finish; the keyboard also uses it for hold-to-talk). */
     suspend fun toggle() {
         try {
             if (starting || stopping) return
@@ -254,10 +254,14 @@ class DictationController(
         try {
             text = coroutineScope {
                 val job = async {
-                    val raw = session?.let { tryLive(it) } ?: transcriber.transcribe(TranscriptionRequest.from(wav, duration, s), s) { status ->
-                        if (state == DictationState.TRANSCRIBING) view.showTranscribing(status)
-                    }.text
-                    TextPostProcessor.clean(raw)
+                    val request = TranscriptionRequest.from(wav, duration, s)
+                    val status: (String) -> Unit = { message -> if (state == DictationState.TRANSCRIBING) view.showTranscribing(message) }
+                    val streamed = session?.let { live ->
+                        val started = System.nanoTime()
+                        tryLive(live)?.let { raw -> transcriber.finish(raw, live.service, request, s, status, (System.nanoTime() - started) / 1_000_000) }
+                    }
+
+                    TextPostProcessor.clean((streamed ?: transcriber.transcribe(request, s, status)).text)
                 }
 
                 transcribeJob = job

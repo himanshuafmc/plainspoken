@@ -43,3 +43,26 @@ tasks.test {
         exceptionFormat = org.gradle.api.tasks.testing.logging.TestExceptionFormat.FULL
     }
 }
+
+// Runs shared/test-fixtures/cleanup-cases.json through the real clean-up service and scores the results.
+// Needs GEMINI_API_KEY (or a proxy that adds the key). Never part of the normal build or CI.
+//   ./gradlew -p core cleanupEval [-Pmodel=gemini-3.5-flash] [-Pcases=hi-]
+val eval: SourceSet by sourceSets.creating {
+    compileClasspath += sourceSets.main.get().output
+    runtimeClasspath += sourceSets.main.get().output
+}
+configurations[eval.implementationConfigurationName].extendsFrom(configurations.api.get(), configurations.implementation.get())
+
+tasks.register<JavaExec>("cleanupEval") {
+    group = "verification"
+    description = "Scores the clean-up step against the shared test set using the real API."
+    classpath = eval.runtimeClasspath
+    mainClass.set("app.plainspoken.core.CleanupEvalKt")
+    systemProperty("plainspoken.fixtures", rootDir.resolve("../../shared/test-fixtures").absolutePath)
+    jvmArgs("-Dstdout.encoding=UTF-8", "-Dfile.encoding=UTF-8")
+    args = listOf(
+        (project.findProperty("model") ?: "gemini-3.5-flash").toString(),
+        (project.findProperty("cases") ?: "").toString(),
+        (project.findProperty("delayMs") ?: "6500").toString(),
+    )
+}

@@ -1,19 +1,16 @@
 package app.plainspoken.core
 
 import app.plainspoken.core.audio.WavEncoder
-import app.plainspoken.core.settings.EngineKind
+import app.plainspoken.core.settings.SpeechService
 import app.plainspoken.core.settings.PlainspokenSettings
 import app.plainspoken.core.transcription.GeminiClient
 import app.plainspoken.core.transcription.GeminiGenerateEngine
 import app.plainspoken.core.transcription.GeminiTranscribeEngine
 import app.plainspoken.core.transcription.KeyTester
 import app.plainspoken.core.transcription.RetryPolicy
-import app.plainspoken.core.transcription.TranscriptionEngine
 import app.plainspoken.core.transcription.TranscriptionErrorKind
 import app.plainspoken.core.transcription.TranscriptionException
 import app.plainspoken.core.transcription.TranscriptionRequest
-import app.plainspoken.core.transcription.TranscriptionService
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.runBlocking
 import java.io.IOException
 import java.net.UnknownHostException
@@ -112,62 +109,15 @@ class EngineTests {
     }
 
     @Test
-    fun `rate limits switch to the backup engine`() = runBlocking {
-        val calls = ArrayList<EngineKind>()
-        val service = TranscriptionService(
-            { kind, _ ->
-                object : TranscriptionEngine {
-                    override val kind = kind
-                    override suspend fun transcribe(request: TranscriptionRequest): String {
-                        calls.add(kind)
-                        if (kind == EngineKind.TRANSCRIBE) throw TranscriptionException(TranscriptionErrorKind.DAILY_QUOTA, "429", 429)
-                        return "from backup"
-                    }
-                }
-            },
-            ListLog(),
-            workDispatcher = Dispatchers.Unconfined,
-        )
-        val statuses = ArrayList<String>()
-        val outcome = service.transcribe(request(), settings) { statuses.add(it) }
-        assertEquals("from backup", outcome.text)
-        assertEquals(EngineKind.GENERATE, outcome.engine)
-        assertEquals(listOf(EngineKind.TRANSCRIBE, EngineKind.GENERATE), calls)
-        assertTrue(statuses.single().contains("backup"))
-    }
-
-    @Test
-    fun `without the backup a short per-minute limit waits and retries once`() = runBlocking {
-        var attempts = 0
-        val waits = ArrayList<Duration>()
-        val s = PlainspokenSettings().apply { transcription.useBackupEngineWhenLimited = false }
-        val service = TranscriptionService(
-            { kind, _ ->
-                object : TranscriptionEngine {
-                    override val kind = kind
-                    override suspend fun transcribe(request: TranscriptionRequest): String {
-                        if (attempts++ == 0) throw TranscriptionException(TranscriptionErrorKind.RATE_LIMITED, "429", 429, Duration.ofSeconds(5))
-                        return "ok"
-                    }
-                }
-            },
-            ListLog(),
-            delay = { waits.add(it) },
-            workDispatcher = Dispatchers.Unconfined,
-        )
-        assertEquals("ok", service.transcribe(request(), s, null).text)
-        assertEquals(listOf(Duration.ofSeconds(6)), waits)
-    }
-
-    @Test
     fun `key tester explains the result`() = runBlocking {
         val ok = FakeHttp { FakeResponse(body = """{"name":"models/gemini-3.5-transcribe"}""") }
-        assertTrue(KeyTester.test(ok.client, settings.transcription.apiBaseUrl, "gemini-3.5-transcribe", "k", ListLog()).ok)
+        assertTrue(KeyTester.test(ok.client, SpeechService.GEMINI, settings, "k", ListLog()).ok)
+        assertTrue(ok.requests.single().url.endsWith("/v1beta/models/gemini-3.5-transcribe"))
         val bad = FakeHttp { FakeResponse(400, Fixtures.read("error-400-invalid-key.json")) }
-        val result = KeyTester.test(bad.client, settings.transcription.apiBaseUrl, "gemini-3.5-transcribe", "k", ListLog())
+        val result = KeyTester.test(bad.client, SpeechService.GEMINI, settings, "k", ListLog())
         assertFalse(result.ok)
         assertTrue("did not accept" in result.message)
-        assertFalse(KeyTester.test(ok.client, settings.transcription.apiBaseUrl, "m", "  ", ListLog()).ok)
+        assertFalse(KeyTester.test(ok.client, SpeechService.GEMINI, settings, "  ", ListLog()).ok)
     }
 
     @Test
