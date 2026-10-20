@@ -4,6 +4,7 @@ import android.content.ClipData
 import android.content.ClipboardManager
 import android.os.Bundle
 import android.view.accessibility.AccessibilityNodeInfo
+import kotlinx.coroutines.delay
 
 /**
  * Puts dictated text into another app's text box through accessibility actions, at the cursor:
@@ -17,7 +18,7 @@ object FieldWriter {
     fun textOf(node: AccessibilityNodeInfo): String =
         if (node.isShowingHintText) "" else node.text?.toString().orEmpty()
 
-    fun insert(node: AccessibilityNodeInfo, text: String, clipboard: ClipboardManager?): Result {
+    suspend fun insert(node: AccessibilityNodeInfo, text: String, clipboard: ClipboardManager?): Result {
         if (node.isPassword || !node.isEditable) return Result.FAILED
         val current = textOf(node)
         var start = node.textSelectionStart
@@ -36,14 +37,15 @@ object FieldWriter {
         val supportsSetText = node.actionList.any { it.id == AccessibilityNodeInfo.ACTION_SET_TEXT }
         if (supportsSetText) {
             val args = Bundle().apply { putCharSequence(AccessibilityNodeInfo.ACTION_ARGUMENT_SET_TEXT_CHARSEQUENCE, updated) }
-            if (node.performAction(AccessibilityNodeInfo.ACTION_SET_TEXT, args)) {
+            // Some apps accept the action but ignore it; check before trusting it. The cursor is moved only after the new
+            // text shows, because Jetpack Compose apps apply a cursor move to the text they had before.
+            if (node.performAction(AccessibilityNodeInfo.ACTION_SET_TEXT, args) && showsNewText(node, current, piece.trim())) {
                 val caret = start + piece.length
                 node.performAction(AccessibilityNodeInfo.ACTION_SET_SELECTION, Bundle().apply {
                     putInt(AccessibilityNodeInfo.ACTION_ARGUMENT_SELECTION_START_INT, caret)
                     putInt(AccessibilityNodeInfo.ACTION_ARGUMENT_SELECTION_END_INT, caret)
                 })
-                // Some apps accept the action but ignore it; check before trusting it.
-                if (!node.refresh() || textOf(node).contains(piece.trim())) return Result.SET
+                return Result.SET
             }
         }
 
@@ -51,4 +53,19 @@ object FieldWriter {
         clipboard.setPrimaryClip(ClipData.newPlainText("Plainspoken", piece))
         return if (node.performAction(AccessibilityNodeInfo.ACTION_PASTE)) Result.PASTED else Result.FAILED
     }
+
+    /** Whether the box now holds the dictation, waiting briefly for apps (Jetpack Compose ones) that show it a frame later. */
+    private suspend fun showsNewText(node: AccessibilityNodeInfo, before: String, piece: String): Boolean {
+        repeat(CHECKS) { attempt ->
+            if (attempt > 0) delay(CHECK_EVERY_MS)
+            if (!node.refresh()) return true // the box can't be read back; trust the app
+            val now = textOf(node)
+            if (now != before && now.contains(piece)) return true
+        }
+
+        return false
+    }
+
+    private const val CHECKS = 6
+    private const val CHECK_EVERY_MS = 60L
 }

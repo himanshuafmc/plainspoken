@@ -194,13 +194,38 @@ class DictationDot : AccessibilityService(), DictationView, TextInserter {
     }
 
     /** The text box with input focus, if it is an editable, non-password box. */
-    private fun focusedTextBox(): AccessibilityNodeInfo? {
-        val node = try {
-            findFocus(AccessibilityNodeInfo.FOCUS_INPUT) ?: rootInActiveWindow?.findFocus(AccessibilityNodeInfo.FOCUS_INPUT)
-        } catch (_: Exception) {
-            null
-        } ?: return null
-        return if (node.isEditable && !node.isPassword) node else null
+    private fun focusedTextBox(): AccessibilityNodeInfo? = try {
+        val focused = findFocus(AccessibilityNodeInfo.FOCUS_INPUT) ?: rootInActiveWindow?.findFocus(AccessibilityNodeInfo.FOCUS_INPUT)
+        when {
+            focused == null -> rootInActiveWindow?.let { textBoxInside(it, onlyIfFocused = true) }
+            focused.isEditable -> focused.takeUnless { it.isPassword }
+            // Apps built with Jetpack Compose (ChatGPT and Claude among them) report their whole screen as the focused
+            // view, not the text box in it: look inside it for the box.
+            else -> textBoxInside(focused, onlyIfFocused = false)
+        }
+    } catch (_: Exception) {
+        null
+    }
+
+    /**
+     * The editable box under [root] that has focus (null if that is a password box). Unless [onlyIfFocused], a box that
+     * doesn't say it has focus is taken when it is the only one on screen.
+     */
+    private fun textBoxInside(root: AccessibilityNodeInfo, onlyIfFocused: Boolean): AccessibilityNodeInfo? {
+        val queue = ArrayDeque<AccessibilityNodeInfo>().apply { add(root) }
+        val boxes = mutableListOf<AccessibilityNodeInfo>()
+        var seen = 0
+        while (seen++ < MAX_NODES) {
+            val node = queue.removeFirstOrNull() ?: break
+            if (node.isEditable && node.isVisibleToUser) {
+                if (node.isFocused) return node.takeUnless { it.isPassword }
+                boxes += node
+            }
+
+            for (i in 0 until node.childCount) node.getChild(i)?.let(queue::add)
+        }
+
+        return boxes.singleOrNull()?.takeUnless { onlyIfFocused || it.isPassword }
     }
 
     /** Where the on-screen keyboard is, or null when none is showing. */
@@ -566,6 +591,9 @@ class DictationDot : AccessibilityService(), DictationView, TextInserter {
         const val EDGE_DP = 4
         const val TOP_DP = 48
         const val LABEL_MAX_DP = 260
+
+        /** How many nodes of an app's screen to look through for its text box. */
+        const val MAX_NODES = 1500
 
         /** A press held at least this long is hold-to-talk: letting go finishes the dictation. */
         const val HOLD_MS = 500L

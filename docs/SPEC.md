@@ -324,22 +324,23 @@ Windows core and is tested against the same `shared/test-fixtures/` (API shapes,
 - **Audio (§3):** `AudioRecord` captures 16 kHz mono PCM16 directly (source `VOICE_RECOGNITION`, falling back to `MIC`), so no resampling is needed. Blocks of 100 ms feed live streaming.
 - **Insertion (§5):** `InputConnection.commitText`. A space is added in front when the cursor sits right after a word. If the text box has gone (the keyboard was closed while transcribing) or refuses the text, it is copied to the clipboard instead ("Copied — long-press the text box and tap Paste"). The keyboard also has space, comma, full stop, delete (repeats while held) and an enter key that performs the text box's action (Send, Search, …).
 - **Closing the keyboard while listening** stops and transcribes, as if ✓ was tapped.
-- **Floating mic (0.5.0, floating-mic edition only):** an accessibility service (`dot/DictationDot`, declared only in the
-  `floatingMic` build) shows a 60 dp mic as an accessibility overlay
-  (no "display over other apps" permission) while the focused node is an editable, non-password text box **and** an
-  on-screen keyboard window is showing, unless the Plainspoken keyboard is the current keyboard. It sits at the right
-  edge, 72 dp above the keyboard's top; dragging it moves it, and on release it snaps to the nearer edge and remembers
-  the edge and the gap above the keyboard (on this phone only). A touch starts dictation at once (§2); a second tap
-  finishes; a press held ≥ 0.5 s finishes on release; moving the finger within 1.2 s of touching turns the press into a
-  drag and silently discards the recording it started. The text goes into the box that had focus when dictation
-  started: `ACTION_SET_TEXT` with the text before the cursor + dictation + text after it (placeholder text ignored),
-  then the cursor is put after the dictation and the result is checked; if the app doesn't support or ignores that,
-  the text is pasted (`ACTION_PASTE`, which leaves it on the clipboard); if the box is gone, it is copied. Hints,
-  errors (with Retry / Open app) and the vocabulary offer appear in a small label beside the dot. Learning: at the
-  next dictation in the same app within 10 minutes, the box's text (around the cursor for long texts) is compared
-  with what was inserted, and corrected words are offered after that dictation. The dot records in the accessibility
-  service, which Android binds with the foreground capabilities needed for the microphone; if Android still delivers
-  only silence, the label says so and the log records it.
+- **Floating mic (0.5.0, floating-mic edition only):** an accessibility service (`dot/DictationDot`, declared only in
+  the `floatingMic` build) shows a 60 dp mic as an accessibility overlay (no "display over other apps" permission) while
+  the focused node is an editable, non-password text box **and** an on-screen keyboard window is showing, unless the
+  Plainspoken keyboard is the current keyboard (Jetpack Compose apps report their whole screen as the focused node, so
+  the dot looks inside it for the editable node that has focus, or the only editable one on screen). It sits at the
+  right edge, 72 dp above the keyboard's top; dragging it moves it, and on release it snaps to the nearer edge and
+  remembers the edge and the gap above the keyboard (on this phone only). A touch starts dictation at once (§2); a
+  second tap finishes; a press held ≥ 0.5 s finishes on release; moving the finger within 1.2 s of touching turns the
+  press into a drag and silently discards the recording it started. The text goes into the box that had focus when
+  dictation started: `ACTION_SET_TEXT` with the text before the cursor + dictation + text after it (placeholder text
+  ignored), then the result is checked (for up to 0.3 s, since Compose apps show it a frame later) and the cursor is put
+  after the dictation; if the app doesn't support or ignores that, the text is pasted (`ACTION_PASTE`, which leaves it
+  on the clipboard); if the box is gone, it is copied. Hints, errors (with Retry / Open app) and the vocabulary offer
+  appear in a small label beside the dot. Learning: at the next dictation in the same app within 10 minutes, the box's
+  text (around the cursor for long texts) is compared with what was inserted, and corrected words are offered after that
+  dictation. The dot records in the accessibility service, which Android binds with the foreground capabilities needed
+  for the microphone; if Android still delivers only silence, the label says so and the log records it.
 - **Password boxes:** the mic is disabled (no audio is recorded or sent). **Incognito text boxes** (`IME_FLAG_NO_PERSONALIZED_LEARNING`): the transcript is not added to history.
 - **Sounds:** start is a short vibration only (a sound would be captured by the microphone that just opened); stop plays the same falling chirp as Windows, plus a vibration. Both follow `recording.sounds`.
 - **Settings (§6):** same JSON format and export/import (a Windows export imports on Android and vice versa). Windows-only fields are kept untouched. `local.apiKeyProtected` is encrypted with an AES-GCM key in the Android Keystore. The app is excluded from backup.
