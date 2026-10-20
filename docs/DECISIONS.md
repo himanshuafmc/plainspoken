@@ -72,6 +72,15 @@ Windows 10/11 x64 · C# / .NET 10 · WinForms · NAudio for capture · P/Invoke 
 - **Stats hold timings only**, never text, and stay on the phone; prices are entered by the user because they differ by plan and change often.
 - **Windows stays on Gemini for now.** The service framework is ported to the Windows core in 0.5.0; until then Windows ignores the new settings fields, and version-1 readers are unaffected.
 
+## Floating mic on Android (0.5.0)
+- **Why:** switching to a voice keyboard and back for every dictation is the biggest friction on Android; Android lets no app switch keyboards by itself. A mic that floats next to whatever keyboard is open removes the switch, as other dictation apps do.
+- **An accessibility service, the only way to type into another app's text box.** It asks only for what it uses: focus and window changes, the window list (to see whether a keyboard is showing) and the focused node's text. It doesn't filter keys or perform gestures, ignores password boxes and keeps nothing it reads. The dot is a `TYPE_ACCESSIBILITY_OVERLAY` window, so no "display over other apps" permission is needed.
+- **Shown only while a keyboard is up** in an editable box, so it never sits over content when the user isn't typing, and never over the Plainspoken keyboard (which has its own mic).
+- **Microphone without a foreground service.** Android binds accessibility services with `BIND_INCLUDE_CAPABILITIES`, so the service can record while the user is using it; a foreground service would need a notification and, on Android 14+, can't be started with microphone access from the background anyway. If a phone still silences it, the recorder detects exact-zero audio (and `isClientSilenced`), the dot says so, and the keyboard remains as the fallback.
+- **Typing in: set-text first, paste as fallback.** Setting the whole text (before + dictation + after, placeholder ignored) keeps the clipboard untouched and works in most native and Chrome text boxes; the result is checked, and apps that don't support or ignore it get a paste instead, which leaves the text on the clipboard. Android doesn't let a background service read the clipboard, so the old clipboard can't be restored.
+- **Touch starts recording at once** (so hold-to-talk has no delay); a drag in the first 1.2 s quietly discards that recording instead of adding a separate drag handle.
+- **Position on the phone only** (edge + gap above the keyboard, in SharedPreferences), not in the shared settings file: it depends on the screen.
+
 ## Any speech service on Windows (0.5.0)
 - **A straight port of the Android core.** The router, engines, clean-up, streaming, learner and stats are C# translations of the Kotlin code, tested with the same cases; a test compares the clean-up instructions with the Android file so the two can't drift apart.
 - **Multipart bodies are written like the services' SDKs** (quoted field names, no `filename*`), because .NET's defaults (unquoted names) are valid but not what every server's form parser expects.

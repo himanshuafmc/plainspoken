@@ -1,7 +1,7 @@
 # Plainspoken for Android
 
-The Android app: a **voice keyboard** with a big mic button, plus a small app for setup, settings and recent
-transcripts. It behaves like the Windows app because both follow [`docs/SPEC.md`](../docs/SPEC.md) and are tested
+The Android app: a **floating mic** that works next to any keyboard (an accessibility service), a **voice keyboard**
+with a big mic button, and a small app for setup, settings and recent transcripts. It behaves like the Windows app because both follow [`docs/SPEC.md`](../docs/SPEC.md) and are tested
 against the same files in [`shared/test-fixtures/`](../shared/test-fixtures).
 
 ## Layout
@@ -9,7 +9,7 @@ against the same files in [`shared/test-fixtures/`](../shared/test-fixtures).
 | Folder | What it is |
 |---|---|
 | `core/` | Plain Kotlin (no Android APIs), a separate Gradle build: settings in the shared JSON format; the speech services (Gemini — inline audio, Files API, live streaming — Sarvam, OpenAI-compatible, Deepgram and ElevenLabs, with Sarvam and Deepgram streaming); the router (service order, switching on failure or slowness, pausing failing services); the clean-up step and its safety check; snippets; the correction learner; text joining; WAV and splitting; saved recordings, history and stats; the redacting logger and the dictation state machine. Started as a port of `windows/src/Plainspoken.Core`. |
-| `app/` | The Android app. Framework views only (no AndroidX UI libraries): `keyboard/` (the `InputMethodService`, its custom-drawn mic button with hold-to-talk, keys and the "add to vocabulary" offer), `platform/` (microphone via `AudioRecord`, AAC compression via `MediaCodec`, sounds, Android Keystore key storage), the setup/home, settings, per-service, speed-and-cost and history screens. |
+| `app/` | The Android app. Framework views only (no AndroidX UI libraries): `dot/` (the floating mic: an `AccessibilityService` that shows a draggable mic overlay next to the keyboard and types into the focused text box), `keyboard/` (the `InputMethodService`, its custom-drawn mic button with hold-to-talk, keys and the "add to vocabulary" offer), `platform/` (microphone via `AudioRecord`, AAC compression via `MediaCodec`, sounds, Android Keystore key storage), the setup/home, settings, per-service, speed-and-cost and history screens. |
 
 The app targets Android 8.0+ (API 26) and Android 15 (API 35). Its only libraries are OkHttp, kotlinx.coroutines
 and kotlinx.serialization, plus three small AndroidX libraries that OkHttp itself needs (see `THIRD-PARTY-NOTICES.md`).

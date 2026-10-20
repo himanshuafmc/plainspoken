@@ -7,6 +7,7 @@ import android.content.Intent
 import android.content.pm.PackageManager
 import android.graphics.Typeface
 import android.net.Uri
+import android.os.Build
 import android.os.Bundle
 import android.provider.Settings
 import android.util.TypedValue
@@ -22,6 +23,7 @@ import android.widget.Toast
 import app.plainspoken.core.AppInfo
 import app.plainspoken.core.transcription.KeyTester
 import app.plainspoken.core.settings.SpeechService
+import app.plainspoken.dot.DotPrefs
 import app.plainspoken.keyboard.PlainspokenKeyboard
 import app.plainspoken.ui.Icon
 import app.plainspoken.ui.IconView
@@ -32,7 +34,7 @@ import kotlinx.coroutines.cancel
 import kotlinx.coroutines.launch
 
 /**
- * Home and first-run screen: a short checklist (key, notice, microphone, keyboard on, keyboard chosen)
+ * Home and first-run screen: a short checklist (key, notice, microphone, then the floating mic or the keyboard)
  * that ticks itself off, then a box to try dictation and links to History and Settings.
  */
 class MainActivity : Activity() {
@@ -76,6 +78,7 @@ class MainActivity : Activity() {
             checkSelfPermission(Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED,
             keyboardEnabled(),
             keyboardChosen(),
+            DotPrefs.serviceEnabled(this),
             services.pending.count,
         ).joinToString()
         if (state != shownState) render()
@@ -99,12 +102,20 @@ class MainActivity : Activity() {
         val micOk = checkSelfPermission(Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED
         val enabledOk = keyboardEnabled()
         val chosenOk = keyboardChosen()
-        val allOk = keyOk && noticeOk && micOk && enabledOk && chosenOk
+        val dotOk = DotPrefs.serviceEnabled(this)
+        val allOk = keyOk && noticeOk && micOk && (dotOk || (enabledOk && chosenOk))
 
         if (allOk) {
             val card = ui.card(content)
             ui.heading(card, "You're all set ✓")
-            ui.text(card, "In any app, tap a text box, make sure the Plainspoken keyboard is showing, tap the mic and speak. Tap ✓ when you're done.", muted = true)
+            if (dotOk) {
+                ui.text(card, "In any app, tap a text box: the Plainspoken mic appears next to your keyboard. Tap it, speak, and tap it again — " +
+                    "or hold it while you speak and let go. Drag it to move it.", muted = true)
+            } else {
+                ui.text(card, "In any app, tap a text box, make sure the Plainspoken keyboard is showing, tap the mic and speak. Tap ✓ when you're done.", muted = true)
+                ui.text(card, "Tip: the floating mic works with your usual keyboard, so you don't have to switch keyboards.", muted = true, sizeSp = 14f)
+                ui.button(card, "Turn on the floating mic", primary = false) { openAccessibilitySettings() }
+            }
         } else {
             val card = ui.card(content)
             ui.heading(card, "Set up in a minute")
@@ -122,17 +133,46 @@ class MainActivity : Activity() {
             step(card, 4, "Allow the microphone", "Only used while you dictate.", micOk) {
                 ui.button(it, "Allow microphone") { askMicrophone() }
             }
-            step(card, 5, "Turn on the Plainspoken keyboard", "In the list, switch on Plainspoken. Android shows a standard warning for every keyboard — Plainspoken only sends your voice to your speech service when you tap the mic.", enabledOk) {
-                ui.button(it, "Open keyboard settings") { startActivity(Intent(Settings.ACTION_INPUT_METHOD_SETTINGS)) }
+            step(
+                card, 5, "Turn on the floating mic (recommended)",
+                "A small mic appears next to your usual keyboard in any app: tap it to dictate, no keyboard switching. " +
+                    "Open Accessibility settings, tap Plainspoken floating mic (it may be under “Downloaded apps” or “Installed apps”) " +
+                    "and switch it on. Android warns about every accessibility service; Plainspoken looks only at the text box you are " +
+                    "typing in, never at passwords, and sends nothing but your recordings to your speech service.",
+                dotOk,
+            ) {
+                ui.button(it, "Open Accessibility settings") { openAccessibilitySettings() }
+                if (Build.VERSION.SDK_INT >= 33) {
+                    ui.text(
+                        it,
+                        "If Android says “Restricted setting”: tap App info below, then ⋮ (top right) → Allow restricted settings, " +
+                            "and try again. Android asks this once for apps installed from outside the Play Store.",
+                        muted = true, sizeSp = 13f,
+                    )
+                    ui.button(it, "App info", primary = false) {
+                        startActivity(Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.fromParts("package", packageName, null)))
+                    }
+                }
             }
-            step(card, 6, "Choose it", "Pick Plainspoken. Later, switch keyboards with the 🌐 key or the keyboard button at the bottom of the screen.", chosenOk) {
-                ui.button(it, "Choose keyboard") { getSystemService(InputMethodManager::class.java)?.showInputMethodPicker() }
+            if (!dotOk) {
+                ui.text(card, "Or use the Plainspoken keyboard instead:", muted = true, sizeSp = 14f)
+                step(card, 6, "Turn on the Plainspoken keyboard", "In the list, switch on Plainspoken. Android shows a standard warning for every keyboard — Plainspoken only sends your voice to your speech service when you tap the mic.", enabledOk) {
+                    ui.button(it, "Open keyboard settings") { startActivity(Intent(Settings.ACTION_INPUT_METHOD_SETTINGS)) }
+                }
+                step(card, 7, "Choose it", "Pick Plainspoken. Later, switch keyboards with the 🌐 key or the keyboard button at the bottom of the screen.", chosenOk) {
+                    ui.button(it, "Choose keyboard") { getSystemService(InputMethodManager::class.java)?.showInputMethodPicker() }
+                }
             }
         }
 
         val tryCard = ui.card(content)
         ui.heading(tryCard, "Try it here")
-        ui.text(tryCard, "Tap the box, then the mic on the Plainspoken keyboard. Say something like “Please add milk, eggs and bread to the list.”", muted = true)
+        ui.text(
+            tryCard,
+            (if (dotOk) "Tap the box, then the floating mic next to your keyboard." else "Tap the box, then the mic on the Plainspoken keyboard.") +
+                " Say something like “Please add milk, eggs and bread to the list.”",
+            muted = true,
+        )
         ui.edit(tryCard, "Your words appear here", multiLine = true).apply { minLines = 3 }
 
         val more = ui.card(content)
@@ -141,7 +181,7 @@ class MainActivity : Activity() {
         ui.button(more, "Recent transcripts", primary = false) { startActivity(Intent(this, HistoryActivity::class.java)) }
         ui.button(more, "Settings", primary = false) { startActivity(Intent(this, SettingsActivity::class.java)) }
         ui.text(more, "Plainspoken ${AppInfo.version} · free, open-source software (GPL-3.0) · github.com/himanshuafmc/plainspoken", muted = true, sizeSp = 12f)
-        shownState = listOf(keyOk, noticeOk, micOk, enabledOk, chosenOk, pending).joinToString()
+        shownState = listOf(keyOk, noticeOk, micOk, enabledOk, chosenOk, dotOk, pending).joinToString()
     }
 
     private fun header() {
@@ -255,6 +295,14 @@ class MainActivity : Activity() {
     override fun onRequestPermissionsResult(requestCode: Int, permissions: Array<out String>, grantResults: IntArray) {
         super.onRequestPermissionsResult(requestCode, permissions, grantResults)
         render()
+    }
+
+    private fun openAccessibilitySettings() {
+        try {
+            startActivity(Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS))
+        } catch (_: Exception) {
+            Toast.makeText(this, "Open Settings → Accessibility", Toast.LENGTH_LONG).show()
+        }
     }
 
     private fun keyboardEnabled(): Boolean {

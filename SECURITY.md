@@ -17,7 +17,8 @@ This is a volunteer project, so there is no fixed response time, but reports are
 For example:
 
 - an API key being readable by other Windows users or other Android apps, written in plain text, logged or exported;
-- the Android keyboard recording or sending audio when the mic wasn't tapped, or in a password box;
+- the Android keyboard or floating mic recording or sending audio when the mic wasn't tapped, or in a password box;
+- the Android floating mic reading anything other than the focused text box, reading a password box, or storing, logging or sending what it read;
 - dictated text ending up anywhere other than the target app, the clipboard (restored afterwards), local history and Google's API;
 - audio or text being sent anywhere other than the configured speech and clean-up service addresses;
 - an API key being sent to a host other than its own service;

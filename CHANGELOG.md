@@ -4,7 +4,7 @@ All notable changes to Plainspoken. Versions follow [Semantic Versioning](https:
 
 ## [0.5.0] - 2026-10-20
 
-The **Windows** app catches up with Android: any speech service, cleaner text, hold-to-talk, snippets and more.
+The **Windows** app catches up with Android — any speech service, cleaner text, hold-to-talk, snippets and more — and **Android** gets a floating mic that works with your usual keyboard.
 
 ### Windows
 - **Choose your speech service.** Besides Gemini, Plainspoken now works with **Sarvam** (Saaras, built for Indian languages and Hinglish), **OpenAI** or any OpenAI-compatible service (such as Groq or your own Whisper server), **Deepgram** and **ElevenLabs** — each with your own key, stored encrypted for your Windows account. Pick a main service and up to two backups in Settings → General, and click **Set up…** next to each.
@@ -21,7 +21,9 @@ The **Windows** app catches up with Android: any speech service, cleaner text, h
 - Your settings move to version 2 automatically; your Gemini key, vocabulary and history stay. Settings files now carry the same services, clean-up and snippets on both apps.
 
 ### Android
-- No changes to the app itself; it moves to version 0.5.0 with Windows. It now keeps the Windows hold-to-talk setting when a settings file goes from Windows to Android and back.
+- **Floating mic:** a small mic now appears next to your usual keyboard (Gboard, Samsung Keyboard, …) in any app. Tap it to dictate and tap again to finish, or hold it while you speak — no more switching keyboards. Drag it anywhere; it remembers the spot. It never appears in password boxes. Turn it on from the checklist in the app (Accessibility settings); the Plainspoken keyboard is still there if you prefer it.
+- The floating mic also learns your corrections: fix a name by hand, and the next time you dictate in that app it offers to add it to your vocabulary.
+- Settings files keep the Windows hold-to-talk setting when they go from Windows to Android and back.
 
 ## [0.4.0] - 2026-10-18
 

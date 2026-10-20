@@ -7,6 +7,7 @@ import android.content.pm.PackageManager
 import android.media.AudioFormat
 import android.media.AudioRecord
 import android.media.MediaRecorder
+import android.os.Build
 import android.os.SystemClock
 import app.plainspoken.core.audio.ClipAnalyzer
 import app.plainspoken.core.dictation.AudioRecorder
@@ -40,6 +41,17 @@ class AndroidRecorder(private val context: Context, private val log: Log) : Audi
 
     @Volatile
     override var sampleSink: ((ShortArray) -> Unit)? = null
+
+    /**
+     * True when the last recording came back as pure silence because Android withheld the microphone (it does that
+     * for apps it considers in the background), as opposed to a quiet room.
+     */
+    @Volatile
+    var silenced: Boolean = false
+        private set
+
+    @Volatile
+    private var heardSomething = false
 
     override val isRecording: Boolean get() = running
 
@@ -89,6 +101,8 @@ class AndroidRecorder(private val context: Context, private val log: Log) : Audi
 
         samples.clear()
         level = 0f
+        silenced = false
+        heardSomething = false
         startedAt = SystemClock.elapsedRealtime()
         record = rec
         running = true
@@ -112,18 +126,23 @@ class AndroidRecorder(private val context: Context, private val log: Log) : Audi
         val rec = record ?: return
         record = null
         running = false
+        val elapsed = SystemClock.elapsedRealtime() - startedAt
         withContext(Dispatchers.IO) {
+            val withheld = Build.VERSION.SDK_INT >= 29 && rec.activeRecordingConfiguration?.isClientSilenced == true
             try {
                 rec.stop()
             } catch (_: IllegalStateException) {
             }
 
             thread?.join(1500)
+            // A real microphone always picks up some noise; exact zeros for over half a second mean Android withheld it.
+            silenced = withheld || (!heardSomething && elapsed > 500)
             rec.release()
         }
 
         thread = null
         level = 0f
+        if (silenced) log.warn("mic: Android delivered only silence (the microphone was withheld from Plainspoken)")
     }
 
     private fun readLoop(rec: AudioRecord) {
@@ -138,6 +157,7 @@ class AndroidRecorder(private val context: Context, private val log: Log) : Audi
 
                 if (n == 0) continue
                 val block = chunk.copyOf(n)
+                if (!heardSomething && block.any { it.toInt() != 0 }) heardSomething = true
                 samples.add(block)
                 val rms = ClipAnalyzer.rms(block)
                 level = if (rms <= 0.0) 0f else ((20 * log10(rms) + 60) / 50).toFloat().coerceIn(0f, 1f)

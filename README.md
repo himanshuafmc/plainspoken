@@ -20,7 +20,7 @@ WhatsApp, Outlook, Notepad, anything with a text box. "Um"s, repeats and false s
 dates and amounts come out properly formatted.
 
 - **On Windows** hold **Right Ctrl** while you speak and let go — or press **Ctrl + Alt + Space**, speak, and press it again.
-- **On Android** Plainspoken is a keyboard: tap the mic, speak, and tap **✓** — or hold the mic while you speak and let go.
+- **On Android** a small **floating mic** appears next to your usual keyboard: tap it, speak, and tap it again — or hold it while you speak and let go. (Prefer a voice keyboard? Plainspoken is one too.)
 
 Both apps are the same Plainspoken: the same speech engine and clean-up, the same settings file, one release.
 
@@ -61,8 +61,8 @@ First, **get a free key** (both apps use it): open [aistudio.google.com/apikey](
 ### Android (3 minutes)
 
 1. Download the APK on your phone and open it. Android asks you to allow installing apps from your browser or file manager — allow it, then tap **Install**. (Play Protect may say it doesn't know the app; tap **Install anyway**.)
-2. Open **Plainspoken** and follow the checklist: paste your key, read the notice, allow the microphone, turn on the Plainspoken keyboard and choose it. Android shows its standard warning for any new keyboard — Plainspoken only sends your voice to Google when you tap the mic.
-3. In any app, tap a text box, tap the **mic** on the Plainspoken keyboard, speak, and tap **✓**.
+2. Open **Plainspoken** and follow the checklist: paste your key, read the notice, allow the microphone, and turn on the **floating mic** in Accessibility settings (Android 13 and later first ask you to allow "restricted settings" for apps installed from outside the Play Store — the checklist shows how). Android shows its standard warning for any accessibility service — Plainspoken looks only at the text box you're typing in, never at passwords, and only sends your voice to your speech service when you tap the mic.
+3. In any app, tap a text box: the Plainspoken mic appears next to your keyboard. Tap it, speak, and tap it again.
 
 Both builds are made by GitHub Actions straight from this source code, and the release notes list each file's SHA-256.
 
@@ -79,11 +79,12 @@ Both builds are made by GitHub Actions straight from this source code, and the r
 
 **Android**
 
-- **The keyboard:** a big **mic** button (turns into a green **✓** while listening; or hold it while you speak and let go), **✕** to cancel, **Retry** when a recording is waiting, and keys for 🌐 switch keyboard, comma, space, full stop, delete and enter. Long-press 🌐 to pick any keyboard.
+- **The floating mic:** appears next to your keyboard whenever you type, in any app (never in password boxes). Tap to start and tap again to finish, or hold while you speak and let go. Drag it to move it; it remembers the spot. Messages and the "add to vocabulary" offer show beside it. Turn it off in Settings → Floating mic.
+- **The keyboard (optional):** a big **mic** button (turns into a green **✓** while listening; or hold it while you speak and let go), **✕** to cancel, **Retry** when a recording is waiting, and keys for 🌐 switch keyboard, comma, space, full stop, delete and enter. Long-press 🌐 to pick any keyboard.
 - **Switching back and forth:** tap 🌐 to return to your usual keyboard, and use the keyboard button in the navigation bar (or your keyboard's 🌐 key) to come back to Plainspoken.
 - **The app:** recent transcripts (tap to copy), Retry for saved recordings, and Settings. The ⚙ key on the keyboard opens it.
 - Voice typing is switched off in password boxes, and nothing is kept in history for incognito text boxes.
-- **It learns your words:** fix a misheard name with your usual keyboard, switch back to Plainspoken, and it offers to add the name to your vocabulary.
+- **It learns your words:** fix a misheard name with your keyboard; the next time you dictate in that app (floating mic) or switch back to the Plainspoken keyboard, it offers to add the name to your vocabulary.
 - **Snippets:** save phrases like "insert my address" in Settings, and saying them types the saved text.
 
 **Tips for both:** speak normally and don't worry about "um"s. Say lists naturally ("first milk, second eggs…"). Add names and special words to the **Vocabulary** so they're spelled right. Choose Roman letters or Devanagari for Hindi words in Settings (Gemini's own models may still mix them).
@@ -127,6 +128,9 @@ Windows: right-click the tray icon → **Settings…** · Android: open the Plai
 | "Didn't catch that" | The recording was very short or silent. Speak a bit louder or closer to the microphone. |
 | Windows: "Microphone access is turned off for desktop apps" | Click the message and turn on **Let desktop apps access your microphone** in Windows Settings. |
 | Android: "Plainspoken needs permission to use the microphone" | Tap **Allow**. If Android no longer asks, open the app's settings → Permissions → Microphone → Allow. |
+| Android: the floating mic doesn't appear | Open the Plainspoken app — its checklist shows whether the floating mic is on. It appears only while a keyboard is showing, and not over the Plainspoken keyboard. |
+| Android: "Restricted setting" when turning on the floating mic | Open Plainspoken's App info → ⋮ (top right) → **Allow restricted settings**, then switch it on again. |
+| Android: the floating mic says Android didn't let it use the microphone | Please report it with the log (Settings → Export the log) and use the Plainspoken keyboard meanwhile. |
 | Android: the Plainspoken keyboard doesn't appear | Open the Plainspoken app — its checklist shows which step is missing (keyboard turned on, keyboard chosen). |
 | "Copied — …" | That text box couldn't take the text directly. Paste it (Windows: Ctrl + V; Android: long-press the box → Paste). |
 | Windows: the hotkey does nothing / "already used by another app" | Choose another hotkey in **Settings → General**. |
@@ -138,13 +142,13 @@ Nothing you dictate is lost: if anything fails, the recording is kept until it's
 - Google's free tier is small: a few requests a minute per model, and a daily cap (in September 2026 Google's own error message said 25 a day for the main speech model). When a limit is hit, or the service is slow, Plainspoken switches to your backup service by itself (by default the general Gemini model, gemini-3.5-flash).
 - Hindi output script (Roman or Devanagari) can vary.
 - Windows: text can't be typed into apps running **as Administrator** (a Windows security rule); Plainspoken copies it instead. The app isn't code-signed, so SmartScreen warns on first run.
-- Android: not on the Play Store yet, so updates are a new download from the Releases page. It's a voice keyboard: you switch to it to dictate and back for typing letters.
+- Android: not on the Play Store yet, so updates are a new download from the Releases page.
+- Android: the floating mic types through Android's accessibility interface. A few apps (some games, banking apps and custom editors) don't accept text that way; then the text is copied and you paste it, or use the Plainspoken keyboard.
 - The Sarvam, OpenAI-compatible, Deepgram and ElevenLabs connections follow those services' published APIs; if one misbehaves, please report it with the log.
 - Windows: learning corrections works in apps that let Windows read their text boxes (most do; some, such as a few terminals and games, don't).
 
 ## Roadmap
 
-- 🫧 Android: an optional floating mic bubble, as well as the keyboard
 - 🛒 Android: Play Store listing
 - ✨ Live text appearing while you're still speaking
 - 🌐 More Indian languages

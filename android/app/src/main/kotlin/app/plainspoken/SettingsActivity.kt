@@ -22,6 +22,7 @@ import app.plainspoken.core.settings.SpeechService
 import app.plainspoken.core.settings.TranscriptionMode
 import app.plainspoken.core.settings.VocabularyCleaner
 import app.plainspoken.core.transcription.KeyTester
+import app.plainspoken.dot.DotPrefs
 import app.plainspoken.ui.Ui
 import app.plainspoken.ui.dp
 import kotlinx.coroutines.Dispatchers
@@ -61,6 +62,7 @@ class SettingsActivity : Activity() {
 
     private fun render() {
         content.removeAllViews()
+        floatingMicSection()
         servicesSection()
         cleanupSection()
         speakingSection()
@@ -71,6 +73,36 @@ class SettingsActivity : Activity() {
         statsSection()
         backupSection()
         aboutSection()
+    }
+
+    // --- Floating mic ---
+
+    private fun floatingMicSection() {
+        val card = ui.card(content)
+        ui.heading(card, "Floating mic")
+        val prefs = DotPrefs(this)
+        if (DotPrefs.serviceEnabled(this)) {
+            ui.text(card, "On: a small mic appears next to your keyboard in any app. Tap it to start and again to finish, or hold it " +
+                "while you speak. Drag it to move it.", muted = true, sizeSp = 14f)
+            ui.toggle(card, "Show the floating mic", "Turn off to hide it without changing Accessibility settings.", prefs.enabled) { v ->
+                prefs.enabled = v
+            }
+            ui.button(card, "Move it back to the right side", primary = false) {
+                prefs.resetPosition()
+                Toast.makeText(this, "Moved back", Toast.LENGTH_SHORT).show()
+            }
+        } else {
+            ui.text(card, "Off. Switch on “Plainspoken floating mic” in Accessibility settings to dictate with your usual keyboard, " +
+                "without switching keyboards.", muted = true, sizeSp = 14f)
+        }
+
+        ui.button(card, "Accessibility settings", primary = false) {
+            try {
+                startActivity(Intent(android.provider.Settings.ACTION_ACCESSIBILITY_SETTINGS))
+            } catch (_: Exception) {
+                Toast.makeText(this, "Open Settings → Accessibility", Toast.LENGTH_LONG).show()
+            }
+        }
     }
 
     // --- Speech services ---
@@ -329,7 +361,7 @@ class SettingsActivity : Activity() {
     private fun optionsSection() {
         val card = ui.card(content)
         ui.heading(card, "Options")
-        ui.text(card, "Tap the mic to start and tap ✓ to finish — or hold the mic while you speak and let go.", muted = true, sizeSp = 13f)
+        ui.text(card, "On the keyboard and the floating mic: tap to start and tap again to finish — or hold while you speak and let go.", muted = true, sizeSp = 13f)
         ui.toggle(card, "Add a space after the text", null, s().insertion.trailingSpace) { v -> services.update { it.insertion.trailingSpace = v } }
         ui.toggle(card, "Sounds and vibration", "A tap when listening starts and a soft chirp when it stops", s().recording.sounds) { v ->
             services.update { it.recording.sounds = v }

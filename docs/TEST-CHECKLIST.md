@@ -200,3 +200,18 @@ For each: [ ] tap mic → it turns into a green ✓ with a moving halo and "List
 - [ ] Dictate a name that comes out wrong, fix it with your usual keyboard, switch back to Plainspoken → "Add “…” to your vocabulary?" → **Add** → the word is in Settings → Vocabulary.
 - [ ] Settings → Speed and cost: each service shows dictations, typical time to text and, after entering a price on its screen, this month's cost.
 - [ ] Export settings: the file has the service order, snippets and clean-up settings, **and no keys**.
+
+## P. Floating mic (0.5.0)
+
+- [ ] Install over 0.4.0 → open Plainspoken → the checklist shows "Turn on the floating mic". Open Accessibility settings → Plainspoken floating mic → On. (Android 13+: if it says "Restricted setting", App info → ⋮ → Allow restricted settings, then again.) The checklist ticks it off.
+- [ ] With Gboard (or Samsung Keyboard) as your keyboard, tap a text box in WhatsApp → the mic appears at the right, above the keyboard. Close the keyboard → it disappears. Tap the box again → it's back. In a password box → no mic.
+- [ ] **Tap** the mic → it turns green ✓ with a level halo, a short vibration; speak → **tap** again → spinner → text appears at the cursor in WhatsApp; the cursor is after the text. Dictate again → the two join with a space.
+- [ ] **Hold** the mic, speak, let go → text inserted. Hold for under half a second → it keeps listening until tapped.
+- [ ] **Drag** the mic up and to the left edge → it snaps to the left; open another app's text box → it's on the left at the same height above the keyboard. Settings → Floating mic → Move it back → right side again. A drag never leaves a recording running.
+- [ ] Text goes in correctly in: WhatsApp ☐, Gmail compose ☐, Chrome (a website's text box) ☐, Google Keep / Notes ☐, Messages ☐, Instagram/LinkedIn ☐. Note any app where it was copied instead: ________.
+- [ ] Type a few words, put the cursor in the middle, dictate → the text goes in at the cursor, nothing else changes.
+- [ ] Dictate "Please call Samir tomorrow", change "Samir" to "Sameer" with Gboard, then dictate again in the same chat → after it, the label beside the mic offers "Add “Sameer” to your vocabulary?" → tap → it's in Settings → Vocabulary.
+- [ ] Airplane mode → dictate → the label says no internet with "Tap to retry" → turn airplane mode off → tap the label → the text goes into the box.
+- [ ] Switch to the Plainspoken keyboard → the floating mic hides (the keyboard has its own mic). Switch back to Gboard → it returns.
+- [ ] Settings → Floating mic → "Show the floating mic" off → it never appears; on → it's back.
+- [ ] If the label ever says Android didn't let the floating mic use the microphone: note the phone model and Android version, export the log and report it.
