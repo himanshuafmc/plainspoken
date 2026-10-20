@@ -1,50 +1,396 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "urn:plainspoken:settings-schema:1",
+  "$id": "urn:plainspoken:settings-schema:2",
   "title": "Plainspoken exported settings",
-  "description": "Settings shared between devices and platforms (Windows now, Android later). Never contains the API key. See docs/SPEC.md section 6. Readers must ignore unknown properties and use defaults for missing ones.",
+  "description": "Settings shared between devices and platforms (Windows and Android). Never contains API keys. See docs/SPEC.md section 6. Readers must ignore unknown properties and use defaults for missing ones. Version 2 (Android 0.4.0) adds the speech service order, per-service settings, the clean-up step, the Hindi script and snippets; version 1 readers ignore them.",
   "type": "object",
-  "required": ["schemaVersion"],
+  "required": [
+    "schemaVersion"
+  ],
   "properties": {
-    "schemaVersion": { "type": "integer", "const": 1 },
+    "schemaVersion": {
+      "type": "integer",
+      "enum": [
+        1,
+        2
+      ],
+      "description": "1 = Windows and Android up to 0.3; 2 = Android 0.4.0 and later."
+    },
     "transcription": {
       "type": "object",
       "properties": {
-        "engine": { "enum": ["transcribe", "generate"], "default": "transcribe" },
-        "transcribeModel": { "type": "string", "minLength": 1, "default": "gemini-3.5-transcribe" },
-        "generateModel": { "type": "string", "minLength": 1, "default": "gemini-3.5-flash-lite" },
-        "apiBaseUrl": { "type": "string", "format": "uri", "default": "https://generativelanguage.googleapis.com" },
-        "requestTimeoutSeconds": { "type": "integer", "minimum": 10, "maximum": 600, "default": 60 },
-        "languages": { "enum": ["englishHindi", "auto", "english"], "default": "englishHindi" },
-        "mode": { "enum": ["smart", "verbatim"], "default": "smart" },
-        "useBackupEngineWhenLimited": { "type": "boolean", "default": true },
-        "liveStreaming": { "type": "boolean", "default": true, "description": "Stream audio to the live model while speaking; falls back to the normal engine if streaming fails." },
-        "liveModel": { "type": "string", "minLength": 1, "default": "gemini-3.5-transcribe-live" },
+        "engine": {
+          "enum": [
+            "transcribe",
+            "generate"
+          ],
+          "default": "transcribe"
+        },
+        "transcribeModel": {
+          "type": "string",
+          "minLength": 1,
+          "default": "gemini-3.5-transcribe"
+        },
+        "generateModel": {
+          "type": "string",
+          "minLength": 1,
+          "default": "gemini-3.5-flash"
+        },
+        "apiBaseUrl": {
+          "type": "string",
+          "format": "uri",
+          "default": "https://generativelanguage.googleapis.com"
+        },
+        "requestTimeoutSeconds": {
+          "type": "integer",
+          "minimum": 10,
+          "maximum": 600,
+          "default": 60
+        },
+        "languages": {
+          "enum": [
+            "englishHindi",
+            "auto",
+            "english"
+          ],
+          "default": "englishHindi"
+        },
+        "mode": {
+          "enum": [
+            "smart",
+            "verbatim"
+          ],
+          "default": "smart"
+        },
+        "useBackupEngineWhenLimited": {
+          "type": "boolean",
+          "default": true
+        },
+        "liveStreaming": {
+          "type": "boolean",
+          "default": true,
+          "description": "Stream audio to the live model while speaking; falls back to the normal engine if streaming fails."
+        },
+        "liveModel": {
+          "type": "string",
+          "minLength": 1,
+          "default": "gemini-3.5-transcribe-live"
+        },
         "customVocabulary": {
           "type": "array",
           "maxItems": 1000,
-          "items": { "type": "string", "minLength": 1, "maxLength": 100 }
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 100
+          }
+        },
+        "serviceOrder": {
+          "type": "array",
+          "maxItems": 3,
+          "items": {
+            "enum": [
+              "gemini",
+              "gemini-general",
+              "sarvam",
+              "openai",
+              "deepgram",
+              "elevenlabs"
+            ]
+          },
+          "default": [
+            "gemini",
+            "gemini-general"
+          ],
+          "description": "Speech services to use: main first, then backups. Unknown ids are ignored."
+        },
+        "services": {
+          "type": "object",
+          "description": "Per-service settings. The Gemini services keep their models and address in the fields above.",
+          "properties": {
+            "gemini": {
+              "type": "object",
+              "properties": {
+                "model": {
+                  "type": "string"
+                },
+                "apiBaseUrl": {
+                  "type": "string"
+                },
+                "streaming": {
+                  "type": "boolean",
+                  "default": true,
+                  "description": "Stream audio while speaking (services that can)."
+                },
+                "vocabularyHints": {
+                  "type": "boolean",
+                  "default": true,
+                  "description": "Send the vocabulary as recognition hints."
+                },
+                "pricePerHour": {
+                  "type": "number",
+                  "minimum": 0,
+                  "default": 0,
+                  "description": "Price of one hour of audio, in 'currency'; for the cost estimate only."
+                },
+                "option": {
+                  "type": "string",
+                  "description": "Service-specific; Sarvam: output mode (transcribe, codemix, translit, verbatim). Empty = automatic."
+                }
+              }
+            },
+            "geminiGeneral": {
+              "type": "object",
+              "properties": {
+                "model": {
+                  "type": "string"
+                },
+                "apiBaseUrl": {
+                  "type": "string"
+                },
+                "streaming": {
+                  "type": "boolean",
+                  "default": true,
+                  "description": "Stream audio while speaking (services that can)."
+                },
+                "vocabularyHints": {
+                  "type": "boolean",
+                  "default": true,
+                  "description": "Send the vocabulary as recognition hints."
+                },
+                "pricePerHour": {
+                  "type": "number",
+                  "minimum": 0,
+                  "default": 0,
+                  "description": "Price of one hour of audio, in 'currency'; for the cost estimate only."
+                },
+                "option": {
+                  "type": "string",
+                  "description": "Service-specific; Sarvam: output mode (transcribe, codemix, translit, verbatim). Empty = automatic."
+                }
+              }
+            },
+            "sarvam": {
+              "type": "object",
+              "properties": {
+                "model": {
+                  "type": "string"
+                },
+                "apiBaseUrl": {
+                  "type": "string"
+                },
+                "streaming": {
+                  "type": "boolean",
+                  "default": true,
+                  "description": "Stream audio while speaking (services that can)."
+                },
+                "vocabularyHints": {
+                  "type": "boolean",
+                  "default": true,
+                  "description": "Send the vocabulary as recognition hints."
+                },
+                "pricePerHour": {
+                  "type": "number",
+                  "minimum": 0,
+                  "default": 0,
+                  "description": "Price of one hour of audio, in 'currency'; for the cost estimate only."
+                },
+                "option": {
+                  "type": "string",
+                  "description": "Service-specific; Sarvam: output mode (transcribe, codemix, translit, verbatim). Empty = automatic."
+                }
+              }
+            },
+            "openai": {
+              "type": "object",
+              "properties": {
+                "model": {
+                  "type": "string"
+                },
+                "apiBaseUrl": {
+                  "type": "string"
+                },
+                "streaming": {
+                  "type": "boolean",
+                  "default": true,
+                  "description": "Stream audio while speaking (services that can)."
+                },
+                "vocabularyHints": {
+                  "type": "boolean",
+                  "default": true,
+                  "description": "Send the vocabulary as recognition hints."
+                },
+                "pricePerHour": {
+                  "type": "number",
+                  "minimum": 0,
+                  "default": 0,
+                  "description": "Price of one hour of audio, in 'currency'; for the cost estimate only."
+                },
+                "option": {
+                  "type": "string",
+                  "description": "Service-specific; Sarvam: output mode (transcribe, codemix, translit, verbatim). Empty = automatic."
+                }
+              }
+            },
+            "deepgram": {
+              "type": "object",
+              "properties": {
+                "model": {
+                  "type": "string"
+                },
+                "apiBaseUrl": {
+                  "type": "string"
+                },
+                "streaming": {
+                  "type": "boolean",
+                  "default": true,
+                  "description": "Stream audio while speaking (services that can)."
+                },
+                "vocabularyHints": {
+                  "type": "boolean",
+                  "default": true,
+                  "description": "Send the vocabulary as recognition hints."
+                },
+                "pricePerHour": {
+                  "type": "number",
+                  "minimum": 0,
+                  "default": 0,
+                  "description": "Price of one hour of audio, in 'currency'; for the cost estimate only."
+                },
+                "option": {
+                  "type": "string",
+                  "description": "Service-specific; Sarvam: output mode (transcribe, codemix, translit, verbatim). Empty = automatic."
+                }
+              }
+            },
+            "elevenlabs": {
+              "type": "object",
+              "properties": {
+                "model": {
+                  "type": "string"
+                },
+                "apiBaseUrl": {
+                  "type": "string"
+                },
+                "streaming": {
+                  "type": "boolean",
+                  "default": true,
+                  "description": "Stream audio while speaking (services that can)."
+                },
+                "vocabularyHints": {
+                  "type": "boolean",
+                  "default": true,
+                  "description": "Send the vocabulary as recognition hints."
+                },
+                "pricePerHour": {
+                  "type": "number",
+                  "minimum": 0,
+                  "default": 0,
+                  "description": "Price of one hour of audio, in 'currency'; for the cost estimate only."
+                },
+                "option": {
+                  "type": "string",
+                  "description": "Service-specific; Sarvam: output mode (transcribe, codemix, translit, verbatim). Empty = automatic."
+                }
+              }
+            }
+          }
+        },
+        "cleanup": {
+          "type": "object",
+          "description": "Smart-mode clean-up of raw transcripts.",
+          "properties": {
+            "provider": {
+              "enum": [
+                "gemini",
+                "openai",
+                "off"
+              ],
+              "default": "gemini"
+            },
+            "geminiModel": {
+              "type": "string",
+              "default": "gemini-3.5-flash"
+            },
+            "openaiModel": {
+              "type": "string",
+              "default": "gpt-4o-mini"
+            },
+            "openaiBaseUrl": {
+              "type": "string",
+              "default": "https://api.openai.com/v1"
+            },
+            "alsoGemini": {
+              "type": "boolean",
+              "default": false,
+              "description": "Also clean the Gemini services' text."
+            }
+          }
+        },
+        "hindiScript": {
+          "enum": [
+            "roman",
+            "devanagari",
+            "asSpoken"
+          ],
+          "default": "roman"
+        },
+        "hedgeSeconds": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 30,
+          "default": 4,
+          "description": "Ask the next service too when one hasn't answered after this long (plus a little for long recordings). 0 = never."
+        },
+        "compressAudio": {
+          "type": "boolean",
+          "default": true
+        },
+        "currency": {
+          "type": "string",
+          "maxLength": 4,
+          "default": "₹"
         }
       }
     },
     "recording": {
       "type": "object",
       "properties": {
-        "maxSeconds": { "type": "integer", "minimum": 30, "maximum": 1800, "default": 600 },
-        "sounds": { "type": "boolean", "default": true }
+        "maxSeconds": {
+          "type": "integer",
+          "minimum": 30,
+          "maximum": 1800,
+          "default": 600
+        },
+        "sounds": {
+          "type": "boolean",
+          "default": true
+        }
       }
     },
     "insertion": {
       "type": "object",
       "properties": {
-        "method": { "enum": ["paste", "type"], "default": "paste" },
-        "trailingSpace": { "type": "boolean", "default": true }
+        "method": {
+          "enum": [
+            "paste",
+            "type"
+          ],
+          "default": "paste"
+        },
+        "trailingSpace": {
+          "type": "boolean",
+          "default": true
+        }
       }
     },
     "history": {
       "type": "object",
       "properties": {
-        "enabled": { "type": "boolean", "default": true }
+        "enabled": {
+          "type": "boolean",
+          "default": true
+        }
       }
     },
     "showMiniButton": {
@@ -56,6 +402,26 @@
       "type": "string",
       "description": "Windows only. Modifiers (Ctrl, Alt, Shift, Win) and one key joined with '+'.",
       "default": "Ctrl+Alt+Space"
+    },
+    "snippets": {
+      "type": "array",
+      "maxItems": 100,
+      "description": "Spoken shortcuts.",
+      "items": {
+        "type": "object",
+        "properties": {
+          "trigger": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 60
+          },
+          "text": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 2000
+          }
+        }
+      }
     }
   }
 }

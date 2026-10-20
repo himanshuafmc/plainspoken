@@ -7,29 +7,21 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
 import kotlinx.serialization.json.putJsonObject
-import okhttp3.Call
-import okhttp3.Callback
 import okhttp3.HttpUrl
 import okhttp3.HttpUrl.Companion.toHttpUrl
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import okhttp3.RequestBody.Companion.toRequestBody
-import okhttp3.Response
 import java.io.IOException
 import java.io.InterruptedIOException
 import java.time.Duration
-import java.time.ZonedDateTime
-import java.time.format.DateTimeFormatter
 import java.util.concurrent.TimeUnit
-import kotlin.coroutines.resume
-import kotlin.coroutines.resumeWithException
 import kotlin.random.Random
 
 data class GeminiFile(val name: String, val uri: String, val state: String, val mimeType: String)
@@ -163,8 +155,6 @@ class GeminiClient(
         }
     }
 
-    internal class RawResponse(val status: Int, val body: String, val headers: Map<String, String>)
-
     internal suspend fun sendOnce(
         build: () -> Request,
         timeout: Duration,
@@ -187,7 +177,7 @@ class GeminiClient(
         val call = http.newCall(request)
         call.timeout().timeout(timeout.toMillis(), TimeUnit.MILLISECONDS)
         val r = try {
-            call.execute(operation)
+            call.awaitRaw(log, operation)
         } catch (e: InterruptedIOException) {
             log.warn("$operation: timed out after ${elapsedMs(started)} ms")
             throw TranscriptionException(TranscriptionErrorKind.TIMEOUT, "$operation: timeout after ${timeout.seconds}s", cause = e)
@@ -198,7 +188,7 @@ class GeminiClient(
 
         log.info("$operation: HTTP ${r.status} in ${elapsedMs(started)} ms (${request.body?.contentLength() ?: 0} bytes up, ${r.body.length} chars down)")
         if (throwOnError && r.status !in 200..299) {
-            val ex = GeminiErrors.fromResponse(r.status, r.body, retryAfter(r.headers["retry-after"]), modelCall)
+            val ex = GeminiErrors.fromResponse(r.status, r.body, parseRetryAfter(r.headers["retry-after"]), modelCall)
             log.warn("$operation: ${ex.kind} — ${ex.message}")
             throw ex
         }
@@ -207,42 +197,6 @@ class GeminiClient(
     }
 
     private fun elapsedMs(startNanos: Long) = (System.nanoTime() - startNanos) / 1_000_000
-
-    /** Runs the call on OkHttp's threads; the body is read there too, so callers may be on the main thread. */
-    private suspend fun Call.execute(operation: String): RawResponse = suspendCancellableCoroutine { cont ->
-        cont.invokeOnCancellation { cancel() }
-        enqueue(object : Callback {
-            override fun onFailure(call: Call, e: IOException) {
-                if (cont.isActive) cont.resumeWithException(e)
-            }
-
-            override fun onResponse(call: Call, response: Response) {
-                val raw = try {
-                    response.use { r ->
-                        val headers = r.headers.names().associate { it.lowercase() to r.headers.values(it).joinToString(",") }
-                        RawResponse(r.code, r.body.string().orEmpty(), headers)
-                    }
-                } catch (e: IOException) {
-                    if (cont.isActive) cont.resumeWithException(e)
-                    return
-                }
-
-                if (cont.isActive) cont.resume(raw) else log.info("$operation: response after cancellation ignored")
-            }
-        })
-    }
-
-    private fun retryAfter(value: String?): Duration? {
-        if (value.isNullOrBlank()) return null
-        value.trim().toLongOrNull()?.let { return Duration.ofSeconds(it) }
-        return try {
-            val date = ZonedDateTime.parse(value.trim(), DateTimeFormatter.RFC_1123_DATE_TIME)
-            val wait = Duration.between(java.time.Instant.now(), date.toInstant())
-            if (wait.isNegative) Duration.ZERO else wait
-        } catch (_: Exception) {
-            null
-        }
-    }
 
     private fun build(method: String, url: HttpUrl, body: JsonElement?): Request {
         val b = Request.Builder().url(url)

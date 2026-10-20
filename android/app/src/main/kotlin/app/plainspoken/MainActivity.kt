@@ -21,6 +21,7 @@ import android.widget.TextView
 import android.widget.Toast
 import app.plainspoken.core.AppInfo
 import app.plainspoken.core.transcription.KeyTester
+import app.plainspoken.core.settings.SpeechService
 import app.plainspoken.keyboard.PlainspokenKeyboard
 import app.plainspoken.ui.Icon
 import app.plainspoken.ui.IconView
@@ -107,15 +108,21 @@ class MainActivity : Activity() {
         } else {
             val card = ui.card(content)
             ui.heading(card, "Set up in a minute")
-            step(card, 1, "Get a free Gemini API key", "Sign in at Google AI Studio and tap Create API key, then copy it.", keyOk) {
+            step(
+                card, 1, "Get a key for a speech service",
+                "The quickest is a free Gemini key: sign in at Google AI Studio, tap Create API key and copy it. " +
+                    "Prefer Sarvam, OpenAI, Deepgram or ElevenLabs? Set them up in Settings → Speech services instead.",
+                keyOk,
+            ) {
                 ui.button(it, "Open Google AI Studio") { open("https://aistudio.google.com/apikey") }
+                ui.button(it, "Use another service", primary = false) { startActivity(Intent(this, SettingsActivity::class.java)) }
             }
-            step(card, 2, "Paste your key", "It is stored encrypted on this phone only.", keyOk) { keyEditor(it) }
+            step(card, 2, "Paste your Gemini key", "It is stored encrypted on this phone only.", keyOk) { keyEditor(it) }
             step(card, 3, "Read this once", null, noticeOk) { notice(it) }
             step(card, 4, "Allow the microphone", "Only used while you dictate.", micOk) {
                 ui.button(it, "Allow microphone") { askMicrophone() }
             }
-            step(card, 5, "Turn on the Plainspoken keyboard", "In the list, switch on Plainspoken. Android shows a standard warning for every keyboard — Plainspoken only sends your voice to Google when you tap the mic.", enabledOk) {
+            step(card, 5, "Turn on the Plainspoken keyboard", "In the list, switch on Plainspoken. Android shows a standard warning for every keyboard — Plainspoken only sends your voice to your speech service when you tap the mic.", enabledOk) {
                 ui.button(it, "Open keyboard settings") { startActivity(Intent(Settings.ACTION_INPUT_METHOD_SETTINGS)) }
             }
             step(card, 6, "Choose it", "Pick Plainspoken. Later, switch keyboards with the 🌐 key or the keyboard button at the bottom of the screen.", chosenOk) {
@@ -199,12 +206,11 @@ class MainActivity : Activity() {
             result.visibility = View.VISIBLE
             result.text = "Checking…"
             scope.launch {
-                val s = services.settings().transcription
-                val test = KeyTester.test(services.http, s.apiBaseUrl, s.transcribeModel, key, services.log)
+                val test = KeyTester.test(services.http, SpeechService.GEMINI, services.settings(), key, services.log)
                 result.text = test.message
                 result.setTextColor(if (test.ok) ui.palette.brand else ui.palette.danger)
                 if (test.ok) {
-                    services.setApiKey(key)
+                    services.setKey(SpeechService.GEMINI_KEY, key)
                     Toast.makeText(this@MainActivity, "Key saved", Toast.LENGTH_SHORT).show()
                     render()
                 }
@@ -273,7 +279,7 @@ class MainActivity : Activity() {
         const val EXTRA_ASK_MICROPHONE = "askMicrophone"
         private const val REQUEST_MIC = 1
 
-        const val NOTICE = "This app uses Google's free tier. Google may use your recordings to improve its products. " +
-            "Do not dictate official, confidential or classified information."
+        const val NOTICE = "Your voice is sent to the speech services you choose, with your own keys. On free tiers (such as Google's) " +
+            "the provider may use your recordings to improve its products. Do not dictate official, confidential or classified information."
     }
 }

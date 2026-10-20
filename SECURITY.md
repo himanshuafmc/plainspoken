@@ -16,10 +16,11 @@ This is a volunteer project, so there is no fixed response time, but reports are
 
 For example:
 
-- the Gemini API key being readable by other Windows users or other Android apps, written in plain text, logged or exported;
+- an API key being readable by other Windows users or other Android apps, written in plain text, logged or exported;
 - the Android keyboard recording or sending audio when the mic wasn't tapped, or in a password box;
 - dictated text ending up anywhere other than the target app, the clipboard (restored afterwards), local history and Google's API;
-- audio or text being sent anywhere other than the configured Gemini API address;
+- audio or text being sent anywhere other than the configured speech and clean-up service addresses;
+- an API key being sent to a host other than its own service;
 - a way to make Plainspoken type or paste text the user didn't dictate.
 
 Out of scope: Google's own services and data policies, other apps reading the clipboard while text is being pasted, the unsigned-exe SmartScreen warning, and Android's standard warning when any keyboard is turned on (both known limitations).

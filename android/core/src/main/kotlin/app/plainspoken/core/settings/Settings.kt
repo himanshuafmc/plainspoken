@@ -36,6 +36,35 @@ enum class TranscriptionMode {
     VERBATIM,
 }
 
+/** How Hindi words are written in the final text. */
+@Serializable
+enum class HindiScript {
+    /** Roman letters, the way people type Hinglish ("kal meeting hai"). */
+    @SerialName("roman")
+    ROMAN,
+
+    @SerialName("devanagari")
+    DEVANAGARI,
+
+    /** Whatever the speech service returns. */
+    @SerialName("asSpoken")
+    AS_SPOKEN,
+}
+
+/** Who tidies up raw transcripts in Smart mode. */
+@Serializable
+enum class CleanupProvider {
+    @SerialName("gemini")
+    GEMINI,
+
+    /** Any service with an OpenAI-style /chat/completions endpoint. */
+    @SerialName("openai")
+    OPENAI,
+
+    @SerialName("off")
+    OFF,
+}
+
 @Serializable
 enum class InsertionMethod {
     @SerialName("paste")
@@ -64,29 +93,54 @@ class PlainspokenSettings {
     /** Windows only: the small on-screen button. */
     var showMiniButton: Boolean = true
 
+    /** Spoken shortcuts: saying [Snippet.trigger] types [Snippet.text]. */
+    var snippets: List<Snippet> = emptyList()
+
     /** This device only. Never exported. */
     var local: LocalSettings = LocalSettings()
 
     /** Clamps numbers, fills defaults and cleans the vocabulary. Returns this. */
     fun normalize(): PlainspokenSettings {
-        schemaVersion = CURRENT_SCHEMA_VERSION
         val t = transcription
+        if (schemaVersion < 2) migrateFromVersion1(t)
+        schemaVersion = CURRENT_SCHEMA_VERSION
         t.transcribeModel = t.transcribeModel.trim().ifEmpty { TranscriptionSettings.DEFAULT_TRANSCRIBE_MODEL }
         t.generateModel = t.generateModel.trim().ifEmpty { TranscriptionSettings.DEFAULT_GENERATE_MODEL }
         t.liveModel = t.liveModel.trim().ifEmpty { TranscriptionSettings.DEFAULT_LIVE_MODEL }
         t.apiBaseUrl = normalizeBaseUrl(t.apiBaseUrl)
         t.requestTimeoutSeconds = t.requestTimeoutSeconds.coerceIn(10, 600)
         t.customVocabulary = VocabularyCleaner.clean(t.customVocabulary)
+        t.serviceOrder = SpeechService.cleanOrder(t.serviceOrder)
+        // Keep the Windows-only fields in step, so an exported file behaves sensibly there.
+        t.engine = if (t.serviceOrder.firstOrNull { it.startsWith("gemini") } == SpeechService.GEMINI_GENERAL.id) EngineKind.GENERATE else EngineKind.TRANSCRIBE
+        t.useBackupEngineWhenLimited = SpeechService.GEMINI.id in t.serviceOrder && SpeechService.GEMINI_GENERAL.id in t.serviceOrder
+        t.services.normalize()
+        t.cleanup.normalize()
+        t.hedgeSeconds = t.hedgeSeconds.coerceIn(0, 30)
+        t.currency = t.currency.trim().take(4).ifEmpty { "₹" }
+        snippets = SnippetCleaner.clean(snippets)
         recording.maxSeconds = recording.maxSeconds.coerceIn(30, 1800)
         hotkey = hotkey.trim().ifEmpty { DEFAULT_HOTKEY }
         return this
     }
 
+    /** Version 1 had two Gemini engines and a "use the backup when limited" switch; they become the service order. */
+    private fun migrateFromVersion1(t: TranscriptionSettings) {
+        val primary = if (t.engine == EngineKind.GENERATE) SpeechService.GEMINI_GENERAL else SpeechService.GEMINI
+        val other = if (primary == SpeechService.GEMINI) SpeechService.GEMINI_GENERAL else SpeechService.GEMINI
+        t.serviceOrder = if (t.useBackupEngineWhenLimited) listOf(primary.id, other.id) else listOf(primary.id)
+        if (t.generateModel.trim() == OLD_GENERATE_MODEL) t.generateModel = TranscriptionSettings.DEFAULT_GENERATE_MODEL
+    }
+
     companion object {
-        const val CURRENT_SCHEMA_VERSION = 1
+        const val CURRENT_SCHEMA_VERSION = 2
         const val DEFAULT_HOTKEY = "Ctrl+Alt+Space"
 
-        fun normalizeBaseUrl(url: String?): String {
+        /** The general model's default before 0.4.0; more accurate gemini-3.5-flash replaces it. */
+        private const val OLD_GENERATE_MODEL = "gemini-3.5-flash-lite"
+
+        /** An http(s) address without a trailing slash, or [fallback] when it isn't one. Paths (like /v1) are kept. */
+        fun normalizeBaseUrl(url: String?, fallback: String = TranscriptionSettings.DEFAULT_API_BASE_URL): String {
             val raw = url?.trim().orEmpty()
             val uri = try {
                 URI(raw)
@@ -95,7 +149,7 @@ class PlainspokenSettings {
             }
 
             if (uri == null || uri.host.isNullOrEmpty() || (uri.scheme != "https" && uri.scheme != "http")) {
-                return TranscriptionSettings.DEFAULT_API_BASE_URL
+                return fallback
             }
 
             val port = if (uri.port >= 0) ":${uri.port}" else ""
@@ -122,11 +176,41 @@ class TranscriptionSettings {
     var liveStreaming: Boolean = true
     var liveModel: String = DEFAULT_LIVE_MODEL
 
+    /** Speech services to use, main first, then up to two backups (ids of [SpeechService]). Unknown ids are dropped. */
+    var serviceOrder: List<String> = listOf(SpeechService.GEMINI.id, SpeechService.GEMINI_GENERAL.id)
+    var services: ServiceSettingsMap = ServiceSettingsMap()
+    var cleanup: CleanupSettings = CleanupSettings()
+    var hindiScript: HindiScript = HindiScript.ROMAN
+
+    /**
+     * When the service in use hasn't answered after about this many seconds (a little more for long recordings),
+     * the next one is asked too and the first answer wins. 0 = only switch after a failure.
+     */
+    var hedgeSeconds: Int = 4
+
+    /** Send compressed audio (AAC) to services that accept it: much smaller uploads. */
+    var compressAudio: Boolean = true
+
+    /** Shown with the cost estimate; prices per service are in this currency. */
+    var currency: String = "₹"
+
     fun modelFor(engine: EngineKind): String = if (engine == EngineKind.TRANSCRIBE) transcribeModel else generateModel
+
+    /** The model a service uses (the Gemini services keep theirs in [transcribeModel] / [generateModel]). */
+    fun modelOf(service: SpeechService): String = when (service) {
+        SpeechService.GEMINI -> transcribeModel
+        SpeechService.GEMINI_GENERAL -> generateModel
+        else -> services[service].model
+    }
+
+    fun baseUrlOf(service: SpeechService): String = if (service.isGemini) apiBaseUrl else services[service].apiBaseUrl
+
+    /** The services in [serviceOrder], main first. */
+    fun orderedServices(): List<SpeechService> = SpeechService.cleanOrder(serviceOrder).mapNotNull { SpeechService.byId(it) }
 
     companion object {
         const val DEFAULT_TRANSCRIBE_MODEL = "gemini-3.5-transcribe"
-        const val DEFAULT_GENERATE_MODEL = "gemini-3.5-flash-lite"
+        const val DEFAULT_GENERATE_MODEL = "gemini-3.5-flash"
         const val DEFAULT_API_BASE_URL = "https://generativelanguage.googleapis.com"
         const val DEFAULT_LIVE_MODEL = "gemini-3.5-transcribe-live"
     }
@@ -156,6 +240,9 @@ class HistorySettings {
 class LocalSettings {
     /** The API key encrypted by the platform (Android: an Android Keystore AES key), base64. Never plain text. */
     var apiKeyProtected: String? = null
+
+    /** Keys for the other services, by key slot (see [SpeechService.keySlot]), encrypted like [apiKeyProtected]. */
+    var apiKeysProtected: Map<String, String> = emptyMap()
 
     /** Windows only: capture device id. */
     var microphoneId: String? = null

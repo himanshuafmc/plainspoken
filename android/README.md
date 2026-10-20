@@ -8,8 +8,8 @@ against the same files in [`shared/test-fixtures/`](../shared/test-fixtures).
 
 | Folder | What it is |
 |---|---|
-| `core/` | Plain Kotlin (no Android APIs), a separate Gradle build: settings in the shared JSON format, the Gemini engines (inline audio, Files API, backup engine, live WebSocket streaming with fallback and pause), text joining and clean-up, WAV, saved recordings, history, the redacting logger and the dictation state machine. A port of `windows/src/Plainspoken.Core`. |
-| `app/` | The Android app. Framework views only (no AndroidX UI libraries): `keyboard/` (the `InputMethodService` and its custom-drawn mic button and keys), `platform/` (microphone via `AudioRecord`, sounds, Android Keystore key storage), the setup/home, settings and history screens. |
+| `core/` | Plain Kotlin (no Android APIs), a separate Gradle build: settings in the shared JSON format; the speech services (Gemini — inline audio, Files API, live streaming — Sarvam, OpenAI-compatible, Deepgram and ElevenLabs, with Sarvam and Deepgram streaming); the router (service order, switching on failure or slowness, pausing failing services); the clean-up step and its safety check; snippets; the correction learner; text joining; WAV and splitting; saved recordings, history and stats; the redacting logger and the dictation state machine. Started as a port of `windows/src/Plainspoken.Core`. |
+| `app/` | The Android app. Framework views only (no AndroidX UI libraries): `keyboard/` (the `InputMethodService`, its custom-drawn mic button with hold-to-talk, keys and the "add to vocabulary" offer), `platform/` (microphone via `AudioRecord`, AAC compression via `MediaCodec`, sounds, Android Keystore key storage), the setup/home, settings, per-service, speed-and-cost and history screens. |
 
 The app targets Android 8.0+ (API 26) and Android 15 (API 35). Its only libraries are OkHttp, kotlinx.coroutines
 and kotlinx.serialization, plus three small AndroidX libraries that OkHttp itself needs (see `THIRD-PARTY-NOTICES.md`).
@@ -24,7 +24,11 @@ cd android
 ./gradlew -p core test               # core tests: any machine, no Android SDK needed
 ./gradlew :app:assembleRelease       # the APK (app/build/outputs/apk/release/)
 ./gradlew :app:lintRelease
+./gradlew -p core cleanupEval        # optional: score the clean-up step on shared/test-fixtures/cleanup-cases.json
 ```
+
+`cleanupEval` calls the real Gemini API (set `GEMINI_API_KEY`; `-Pmodel=…` tries another model, `-Pcases=hi-` runs only
+some cases). It is a tuning tool, never part of CI.
 
 Without signing secrets the release APK is signed with the debug key, which is fine for testing on your own phone.
 GitHub Actions builds every push; a `[release]` commit or a `v*` tag publishes the APK next to the Windows zip,

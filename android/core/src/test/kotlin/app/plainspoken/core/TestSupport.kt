@@ -56,7 +56,7 @@ class FixedClock(var instant: Instant = Instant.parse("2026-07-15T10:00:00Z"), p
 }
 
 /** A captured request (the body is read eagerly). */
-class Captured(val method: String, val url: String, val headers: Map<String, String>, val body: String, val bodyBytes: Int)
+class Captured(val method: String, val url: String, val headers: Map<String, String>, val body: String, val bodyBytes: Int, val contentType: String? = null)
 
 /** Fake network: each request is answered by [handler]. Never touches the network. */
 class FakeHttp(private val handler: (Captured) -> FakeResponse) {
@@ -74,6 +74,7 @@ class FakeHttp(private val handler: (Captured) -> FakeResponse) {
             request.headers.names().associate { it.lowercase() to request.header(it).orEmpty() },
             if (bytes < 2_000_000) buffer.readUtf8() else "",
             bytes,
+            request.body?.contentType()?.toString(),
         )
         requests.add(captured)
         val r = handler(captured)

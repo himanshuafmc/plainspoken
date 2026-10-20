@@ -30,12 +30,19 @@ object NullLog : Log {
 
 object Redactor {
     private val googleKey = Regex("AIza[0-9A-Za-z_\\-]{20,}")
-    private val keyParam = Regex("((?:key|api_key|x-goog-api-key)[=:]\\s*)[^\\s&\"']+", RegexOption.IGNORE_CASE)
 
-    /** Removes anything that looks like a Google API key and trims to a sane length. */
+    /** OpenAI (sk-…), Sarvam and ElevenLabs (sk_…), Groq (gsk_…) and Deepgram (40 hex characters) keys. */
+    private val otherKeys = Regex("\\b(?:g?sk[-_][A-Za-z0-9_\\-]{16,}|[0-9a-f]{40})\\b")
+    private val keyParam = Regex(
+        "((?:key|api_key|x-goog-api-key|api-subscription-key|xi-api-key)[=:]\\s*|(?:bearer|token)\\s+)[^\\s&\"']+",
+        RegexOption.IGNORE_CASE,
+    )
+
+    /** Removes anything that looks like an API key and trims to a sane length. */
     fun clean(text: String?, maxLength: Int = 300): String {
         if (text.isNullOrEmpty()) return ""
         var cleaned = googleKey.replace(text, "[key]")
+        cleaned = otherKeys.replace(cleaned, "[key]")
         cleaned = keyParam.replace(cleaned) { it.groupValues[1] + "[key]" }
         cleaned = cleaned.replace('\r', ' ').replace('\n', ' ')
         return if (cleaned.length <= maxLength) cleaned else cleaned.take(maxLength) + "…"

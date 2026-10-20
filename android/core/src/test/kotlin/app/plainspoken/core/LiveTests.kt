@@ -49,10 +49,14 @@ class FakeLiveSocket(private val server: FakeLiveServer) : LiveSocket {
     override var closeReason: String? = null
         private set
 
-    override suspend fun connect(uri: URI, apiKey: String?) {
+    override suspend fun connect(uri: URI, headers: Map<String, String>) {
         this.uri = uri
-        key = apiKey
+        key = headers["x-goog-api-key"]
         if (server.failConnect) throw IOException("404")
+    }
+
+    override suspend fun sendBinary(bytes: ByteArray) {
+        sent.add("<binary ${bytes.size}>")
     }
 
     override suspend fun send(json: String) {

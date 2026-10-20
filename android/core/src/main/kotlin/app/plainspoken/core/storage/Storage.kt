@@ -32,7 +32,7 @@ object AtomicFile {
     }
 }
 
-private val storageJson = Json {
+internal val storageJson = Json {
     ignoreUnknownKeys = true
     coerceInputValues = true
     prettyPrint = true

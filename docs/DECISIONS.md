@@ -57,6 +57,21 @@ Windows 10/11 x64 · C# / .NET 10 · WinForms · NAudio for capture · P/Invoke 
 - **Signing:** the release APK is signed in GitHub Actions with a key stored only in repository secrets; the release job refuses to publish an APK signed with anything else. Builds without the secrets (forks, test builds) use a throwaway debug key and are named `…-test.apk`.
 - **Not on the Play Store yet.** It needs a developer account ($25, identity verification, a public contact email) and, for new personal accounts, a 14-day closed test with 12 testers. The APK on the Releases page is the official download until then.
 
+## Any speech service (Android 0.4.0)
+- **Built-in services plus one generic option, not plug-ins.** Gemini, Sarvam, Deepgram and ElevenLabs each have their own small connection; "OpenAI-compatible" covers OpenAI, Groq, OpenRouter-style gateways and self-hosted Whisper servers with one. A keyboard sees everything the user types, so loading third-party code (plug-ins) was ruled out.
+- **Two steps: listen, then clean up.** Most speech services return raw text; the Smart-mode polish (fillers, punctuation, grammar, self-corrections) is a separate text-only call, so any speech service gets the same finish. The Gemini audio models already do both, so their text isn't cleaned twice unless asked.
+- **Clean-up default: Gemini 3.5 Flash with minimal thinking.** In tests with the clean-up cases it answered in about 1 s and passed every case; "low" thinking took about 3 s with no better results, and Gemini 3.8 Flash was as good but slower (3–8 s). Temperature 0. A safety check refuses results that look like summaries, answers or empty replies and uses the raw text instead.
+- **The local filler filter is deliberately narrow.** It runs only when the clean-up is off or fails and removes only sounds that are never words (um, uh, erm, hmm, aaa). Two-letter "aa" is a Hindi word ("aa jao"), so it stays.
+- **Hedging instead of long waits.** Free tiers are often slow or "busy" (seen in October 2026: 12–17 s and repeated 503s from the main Gemini model). Asking the next service after a few seconds and taking the first answer keeps dictation quick; it can cost one extra request when a service is slow. With a backup configured, a 503 is not retried on the same service.
+- **Pausing failing services for 15 minutes** (like live streaming already did) avoids paying the wait on every dictation; changing the key clears the pause.
+- **Compression: AAC-LC 32 kbit/s in MP4 through Android's MediaCodec**, about eight times smaller than 16 kHz WAV and accepted by Sarvam, OpenAI, Deepgram and ElevenLabs. No codec library is bundled. Gemini keeps the WAV because inline AAC isn't documented for its transcribe model.
+- **Sarvam's 30-second REST limit** is handled by splitting at quiet moments and sending up to three parts at once, rather than its asynchronous batch API (which needs polling and adds seconds).
+- **Keys per slot.** Each service has its own encrypted key in `local.apiKeysProtected`; the Gemini key stays in `apiKeyProtected` so existing installs and the Windows format keep working. Keys are never exported.
+- **Hindi script is a setting.** Roman letters (Hinglish) by default, as Plainspoken always wrote; Devanagari or "as the service gives" for people who prefer them. It drives Sarvam's mode, the OpenAI prompt example and the clean-up instructions.
+- **Learning from corrections happens on the keyboard.** Plainspoken has no letter keys, so corrections are typed with another keyboard; when the user switches back, the text around the cursor is compared with what was inserted. Nothing leaves the phone, and nothing is kept for incognito or password boxes.
+- **Stats hold timings only**, never text, and stay on the phone; prices are entered by the user because they differ by plan and change often.
+- **Windows stays on Gemini for now.** The service framework is ported to the Windows core in 0.5.0; until then Windows ignores the new settings fields, and version-1 readers are unaffected.
+
 ## CI and releases
 - Push runs on every branch and `v*` tags; same-repo `pull_request` runs are skipped because the push run on the same commit already reports to the PR.
 - One workflow (`build.yml`) runs the Windows core tests, the Windows build and the Android build (core tests, APK, lint) on every push.

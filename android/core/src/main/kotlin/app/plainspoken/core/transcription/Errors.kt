@@ -1,6 +1,7 @@
 package app.plainspoken.core.transcription
 
 import app.plainspoken.core.logging.Redactor
+import app.plainspoken.core.settings.SpeechService
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonNull
@@ -21,6 +22,9 @@ enum class TranscriptionErrorKind {
     BAD_REQUEST,
     UNEXPECTED_RESPONSE,
     BLOCKED,
+
+    /** The account is out of credits or over a paid limit (402, or a quota message from a paid service). */
+    NO_CREDITS,
 }
 
 /**
@@ -34,8 +38,14 @@ class TranscriptionException(
     val statusCode: Int? = null,
     val retryAfter: Duration? = null,
     cause: Throwable? = null,
+    /** The service that failed, when known; used to name it in the message the user sees. */
+    val service: SpeechService? = null,
 ) : Exception(message, cause) {
     val isRateLimit: Boolean get() = kind == TranscriptionErrorKind.RATE_LIMITED || kind == TranscriptionErrorKind.DAILY_QUOTA
+
+    /** This error, tagged with the service it came from (unchanged if it already names one). */
+    fun withService(s: SpeechService): TranscriptionException =
+        if (service != null) this else TranscriptionException(kind, message.orEmpty(), statusCode, retryAfter, cause, s)
 }
 
 /**

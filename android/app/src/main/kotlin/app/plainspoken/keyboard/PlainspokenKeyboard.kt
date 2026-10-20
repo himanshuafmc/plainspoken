@@ -15,6 +15,7 @@ import android.util.TypedValue
 import android.view.Gravity
 import android.view.HapticFeedbackConstants
 import android.view.KeyEvent
+import android.view.MotionEvent
 import android.view.View
 import android.view.ViewGroup
 import android.view.WindowInsets
@@ -27,6 +28,7 @@ import android.widget.Toast
 import app.plainspoken.MainActivity
 import app.plainspoken.PlainspokenApp
 import app.plainspoken.Services
+import app.plainspoken.core.dictation.CorrectionLearner
 import app.plainspoken.core.dictation.DictationController
 import app.plainspoken.core.dictation.DictationState
 import app.plainspoken.core.dictation.DictationView
@@ -36,6 +38,7 @@ import app.plainspoken.core.dictation.UserAction
 import app.plainspoken.core.dictation.UserMessage
 import app.plainspoken.core.settings.PlainspokenSettings
 import app.plainspoken.core.settings.SettingsJson
+import app.plainspoken.core.settings.VocabularyCleaner
 import app.plainspoken.core.time.SystemClock
 import app.plainspoken.platform.AndroidRecorder
 import app.plainspoken.platform.AndroidSounds
@@ -48,7 +51,9 @@ import kotlinx.coroutines.cancel
 import kotlinx.coroutines.launch
 
 /**
- * Plainspoken as an Android keyboard: tap the mic, speak, tap ✓ and the text goes straight into the text box.
+ * Plainspoken as an Android keyboard: tap the mic, speak, tap ✓ (or hold the mic while speaking and let go) and the
+ * text goes straight into the text box. When the user fixes a word by hand right after a dictation, the keyboard
+ * offers to add it to the vocabulary.
  * The dictation logic is the shared DictationController (same as Windows); this class is the Android view,
  * text inserter and glue. Voice typing is switched off in password fields.
  */
@@ -71,6 +76,16 @@ class PlainspokenKeyboard : InputMethodService(), DictationView, TextInserter {
     private var incognito = false
     private var pendingAction: UserAction = UserAction.NONE
     private var messageUntil = 0L
+
+    // Hold-to-talk: a press that starts dictation and lasts at least HOLD_MS finishes it on release.
+    private var pressStartedAt = 0L
+    private var pressStartedDictation = false
+
+    // The last inserted text, to spot words the user corrects afterwards (never kept for incognito or password boxes).
+    private var lastInserted: String? = null
+    private var lastInsertedPackage: String? = null
+    private var lastInsertedAt = 0L
+    private var learnWords: List<String> = emptyList()
     private val settingsListener: () -> Unit = { handler.post { refreshIdle() } }
     private val pendingListener: () -> Unit = { handler.post { refreshRetry() } }
 
@@ -134,6 +149,44 @@ class PlainspokenKeyboard : InputMethodService(), DictationView, TextInserter {
         updateEnterKey(info)
         if (controller.state == DictationState.IDLE) refreshIdle()
         refreshRetry()
+        offerCorrectedWords(info)
+    }
+
+    /**
+     * Back on this keyboard after a dictation (typically after fixing a word with another keyboard): compare the text
+     * around the cursor with what was inserted and offer words the user typed in its place.
+     */
+    private fun offerCorrectedWords(info: EditorInfo) {
+        val inserted = lastInserted ?: return
+        if (info.packageName != lastInsertedPackage || System.currentTimeMillis() - lastInsertedAt > LEARN_WINDOW_MS) {
+            lastInserted = null
+            return
+        }
+
+        if (privateField || incognito || controller.state != DictationState.IDLE) return
+        val ic = currentInputConnection ?: return
+        val around = (ic.getTextBeforeCursor(inserted.length + 400, 0)?.toString().orEmpty()) +
+            (ic.getTextAfterCursor(400, 0)?.toString().orEmpty())
+        if (around.contains(inserted)) return // nothing changed yet: keep watching
+        lastInserted = null
+        val words = CorrectionLearner.candidates(inserted, around, services.settings().transcription.customVocabulary)
+        if (words.isEmpty()) return
+        learnWords = words
+        messageUntil = System.currentTimeMillis() + 20_000
+        setStatus("Add ${words.joinToString(", ") { "“$it”" }} to your vocabulary?", palette.text)
+        action?.let {
+            it.text = "Add"
+            it.visibility = View.VISIBLE
+        }
+
+        handler.postDelayed({ if (learnWords === words && System.currentTimeMillis() >= messageUntil) refreshIdle() }, 20_100)
+    }
+
+    private fun addLearnedWords() {
+        val words = learnWords
+        services.update { it.transcription.customVocabulary = VocabularyCleaner.clean(it.transcription.customVocabulary + words) }
+        services.log.info("vocabulary: ${words.size} corrected words added")
+        showHint(if (words.size == 1) "Added to your vocabulary" else "Added ${words.size} words to your vocabulary")
     }
 
     override fun onFinishInputView(finishingInput: Boolean) {
@@ -144,6 +197,7 @@ class PlainspokenKeyboard : InputMethodService(), DictationView, TextInserter {
 
     // --- Layout ---
 
+    @android.annotation.SuppressLint("ClickableViewAccessibility") // the mic keeps a click listener for accessibility services
     private fun buildView(): View {
         val column = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
@@ -178,7 +232,7 @@ class PlainspokenKeyboard : InputMethodService(), DictationView, TextInserter {
             }
             visibility = View.GONE
             isClickable = true
-            setOnClickListener { runAction(pendingAction) }
+            setOnClickListener { if (learnWords.isNotEmpty()) addLearnedWords() else runAction(pendingAction) }
         }
 
         statusRow.addView(action, LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply { marginEnd = dp(4) })
@@ -194,7 +248,10 @@ class PlainspokenKeyboard : InputMethodService(), DictationView, TextInserter {
         }.also { it.accent = true }
         micRow.addView(retryKey, FrameLayout.LayoutParams(dp(112), dp(48), Gravity.START or Gravity.CENTER_VERTICAL))
 
-        mic = MicButton(this, palette).apply { setOnClickListener { onMicPressed() } }
+        mic = MicButton(this, palette).apply {
+            setOnTouchListener { view, event -> onMicTouch(view, event) }
+            setOnClickListener { onMicPressed() } // accessibility services click instead of touching
+        }
         micRow.addView(mic, FrameLayout.LayoutParams(dp(104), dp(104), Gravity.CENTER))
 
         cancelKey = KeyButton(this, palette, Icon.CLOSE, "Cancel", "Cancel dictation") { scope.launch { controller.cancel() } }
@@ -235,6 +292,29 @@ class PlainspokenKeyboard : InputMethodService(), DictationView, TextInserter {
     }
 
     // --- Actions ---
+
+    /** Tap to start and tap again to finish; or hold while speaking and let go to finish. */
+    private fun onMicTouch(view: View, event: MotionEvent): Boolean {
+        when (event.actionMasked) {
+            MotionEvent.ACTION_DOWN -> {
+                view.isPressed = true
+                pressStartedAt = event.eventTime
+                pressStartedDictation = controller.state == DictationState.IDLE
+                if (pressStartedDictation) onMicPressed()
+            }
+            MotionEvent.ACTION_UP -> {
+                view.isPressed = false
+                val held = event.eventTime - pressStartedAt
+                when {
+                    !pressStartedDictation -> onMicPressed() // a tap while listening finishes; while transcribing shows "busy"
+                    held >= HOLD_MS && controller.state == DictationState.RECORDING -> scope.launch { controller.toggle() }
+                }
+            }
+            MotionEvent.ACTION_CANCEL -> view.isPressed = false
+        }
+
+        return true
+    }
 
     private fun onMicPressed() {
         if (privateField && controller.state == DictationState.IDLE) {
@@ -405,14 +485,14 @@ class PlainspokenKeyboard : InputMethodService(), DictationView, TextInserter {
         when {
             privateField -> setStatus("Voice typing is off in password fields", palette.muted)
             !services.hasApiKey() -> {
-                setStatus("Add your free Gemini key in the Plainspoken app to start.", palette.text)
+                setStatus("Add a key for your speech service in the Plainspoken app to start.", palette.text)
                 pendingAction = UserAction.OPEN_SETTINGS
                 action?.let {
                     it.text = "Open app"
                     it.visibility = View.VISIBLE
                 }
             }
-            else -> setStatus("Tap the mic and speak", palette.muted)
+            else -> setStatus("Tap or hold the mic and speak", palette.muted)
         }
 
         mic?.look = if (privateField) MicLook.DISABLED else MicLook.IDLE
@@ -430,6 +510,7 @@ class PlainspokenKeyboard : InputMethodService(), DictationView, TextInserter {
 
     private fun hideAction() {
         pendingAction = UserAction.NONE
+        learnWords = emptyList()
         action?.visibility = View.GONE
     }
 
@@ -450,7 +531,22 @@ class PlainspokenKeyboard : InputMethodService(), DictationView, TextInserter {
             toInsert = " $toInsert"
         }
 
-        return if (ic.commitText(toInsert, 1)) InsertOutcome.INSERTED else if (copy(text)) InsertOutcome.COPIED else InsertOutcome.FAILED
+        if (!ic.commitText(toInsert, 1)) return if (copy(text)) InsertOutcome.COPIED else InsertOutcome.FAILED
+        if (!incognito) {
+            lastInserted = text.trim()
+            lastInsertedPackage = currentInputEditorInfo?.packageName
+            lastInsertedAt = System.currentTimeMillis()
+        }
+
+        return InsertOutcome.INSERTED
+    }
+
+    private companion object {
+        /** A press held at least this long is hold-to-talk: letting go finishes the dictation. */
+        const val HOLD_MS = 500L
+
+        /** Corrections made within this time after a dictation are offered for the vocabulary. */
+        const val LEARN_WINDOW_MS = 10 * 60 * 1000L
     }
 
     override suspend fun copy(text: String): Boolean = try {
