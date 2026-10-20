@@ -162,7 +162,14 @@ internal sealed class TrayContext : ApplicationContext, IDictationView, ISetting
         _hotkeys = new HotkeyWindow();
         _hotkeys.Pressed += OnHotkey;
         _keyboard = new KeyboardHook();
-        _keyboard.KeyChanged += OnKey;
+        _keyboard.KeyChanged += (_, e) =>
+        {
+            // On the hook's own thread: hand the key to the UI thread and return at once.
+            if (!_exiting && _overlay.IsHandleCreated)
+            {
+                _overlay.BeginInvoke(() => OnKey(e));
+            }
+        };
         _holdTimer.Tick += (_, _) => PollHold();
         if (_keyboard.Error != 0)
         {
@@ -714,8 +721,8 @@ internal sealed class TrayContext : ApplicationContext, IDictationView, ISetting
         _ => 0,
     };
 
-    /// <summary>Called by the keyboard hook for every key: must return quickly.</summary>
-    private void OnKey(object? sender, KeyChange e)
+    /// <summary>Every key the hook saw, in order, on the UI thread.</summary>
+    private void OnKey(KeyChange e)
     {
         var holdKey = HoldVirtualKey(_settings.HoldKey);
         if (holdKey == 0 || e.Injected)
@@ -743,7 +750,7 @@ internal sealed class TrayContext : ApplicationContext, IDictationView, ISetting
         _holdTimer.Stop();
         if (_hold.KeyUp(DateTimeOffset.UtcNow) == HoldAction.Stop && _heldRecording)
         {
-            _overlay.BeginInvoke(() => Fire(StopHeldAsync));
+            Fire(StopHeldAsync);
         }
     }
 
