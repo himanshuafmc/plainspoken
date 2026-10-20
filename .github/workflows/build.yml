@@ -132,7 +132,7 @@ jobs:
         run: |
           v=$(tr -d '[:space:]' < ../VERSION)
           suffix=$([ "${{ steps.key.outputs.signed }}" = "true" ] && echo "" || echo "-test")
-          # Two editions of the same app: standard, and one with the floating mic (installed from a computer; see README).
+          # Two editions of the same app: standard, and one with the floating mic (it needs an extra install step; see README).
           cp app/build/outputs/apk/standard/release/app-standard-release.apk "../Plainspoken-android-$v$suffix.apk"
           cp app/build/outputs/apk/floatingMic/release/app-floatingMic-release.apk "../Plainspoken-android-$v-floating-mic$suffix.apk"
           ls -l ../*.apk
@@ -218,7 +218,7 @@ jobs:
             echo "### Download"
             echo "- **Windows 10/11:** \`$WIN\` — unzip it and run \`Plainspoken.exe\`. If Windows shows \"Windows protected your PC\", click **More info**, then **Run anyway** (the app isn't code-signed)."
             echo "- **Android 8 or newer:** \`$APK\` — open it on your phone and allow installing apps from your browser or file manager when asked."
-            echo "- **Android with the floating mic:** \`$MIC\` — the same app plus a mic that floats next to your usual keyboard. Install it from a computer over USB ([how](https://github.com/$GITHUB_REPOSITORY#floating-mic-android)): in India, Play Protect blocks installing it from a phone browser. Either APK replaces the other and keeps your settings."
+            echo "- **Android with the floating mic:** \`$MIC\` — the same app plus a mic that floats next to your usual keyboard. In India and some other countries Play Protect blocks installing it from the phone: turn off **Scan apps with Play Protect** in the Play Store while you install it, or install it from a computer ([how](https://github.com/$GITHUB_REPOSITORY#floating-mic-android)). Either APK replaces the other and keeps your settings."
             echo
             echo "First steps for both are in the [README](https://github.com/$GITHUB_REPOSITORY#readme)."
             echo

@@ -204,8 +204,8 @@ For each: [ ] tap mic → it turns into a green ✓ with a moving halo and "List
 ## P. Floating mic (0.5.0)
 
 - [ ] **Standard APK** (`Plainspoken-android-0.5.0.apk`): download it on the phone and install over 0.4.0 → it installs (no "App not installed"). The checklist has no floating-mic step; Settings → Floating mic says it's in the floating-mic edition. The keyboard works as in 0.4.0.
-- [ ] **Floating-mic APK over USB**, following README → Floating mic (Android): `adb devices` lists the phone → `adb install -r …-floating-mic.apk` says Success → the app keeps the key, settings and history.
-- [ ] Open Plainspoken → the checklist shows "Turn on the floating mic". Open Accessibility settings → Plainspoken floating mic → On (no "Restricted setting" after a USB install). The checklist ticks it off.
+- [ ] **Floating-mic APK**, following README → Floating mic (Android): Play Store → Play Protect → ⚙ → scanning off → install the APK from the phone → scanning back on. (Or over USB: `adb devices` lists the phone → `adb install -r …-floating-mic.apk` says Success.) The app keeps the key, settings and history.
+- [ ] Open Plainspoken → the checklist shows "Turn on the floating mic". Open Accessibility settings → Plainspoken floating mic → On (Android 13+ after a phone install: App info → ⋮ → Allow restricted settings first). The checklist ticks it off.
 - [ ] With Gboard (or Samsung Keyboard) as your keyboard, tap a text box in WhatsApp → the mic appears at the right, above the keyboard. Close the keyboard → it disappears. Tap the box again → it's back. In a password box → no mic.
 - [ ] **Tap** the mic → it turns green ✓ with a level halo, a short vibration; speak → **tap** again → spinner → text appears at the cursor in WhatsApp; the cursor is after the text. Dictate again → the two join with a space.
 - [ ] **Hold** the mic, speak, let go → text inserted. Hold for under half a second → it keeps listening until tapped.

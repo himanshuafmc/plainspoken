@@ -20,7 +20,7 @@ WhatsApp, Outlook, Notepad, anything with a text box. "Um"s, repeats and false s
 dates and amounts come out properly formatted.
 
 - **On Windows** hold **Right Ctrl** while you speak and let go — or press **Ctrl + Alt + Space**, speak, and press it again.
-- **On Android** Plainspoken is a voice keyboard: tap the mic, speak, and tap it again — or hold it while you speak and let go. The **floating-mic edition** instead puts a small mic next to your usual keyboard, so you never switch keyboards ([installed from a computer](#floating-mic-android)).
+- **On Android** Plainspoken is a voice keyboard: tap the mic, speak, and tap it again — or hold it while you speak and let go. The **floating-mic edition** instead puts a small mic next to your usual keyboard, so you never switch keyboards ([one extra install step](#floating-mic-android)).
 
 Both apps are the same Plainspoken: the same speech engine and clean-up, the same settings file, one release.
 
@@ -42,7 +42,7 @@ It's a free alternative to paid dictation apps, built for everyday typing rather
 |---|---|---|
 | File | `Plainspoken-win-x64-<version>.zip` | `Plainspoken-android-<version>.apk`, or `Plainspoken-android-<version>-floating-mic.apk` for the floating-mic edition |
 | Needs | Windows 10 or 11, 64-bit | Android 8.0 or newer |
-| Install | Unzip it and run `Plainspoken.exe` — no installer | Open the file on your phone and allow the install. The floating-mic edition is installed from a computer — [how](#floating-mic-android) |
+| Install | Unzip it and run `Plainspoken.exe` — no installer | Open the file on your phone and allow the install. The floating-mic edition needs one extra step — [how](#floating-mic-android) |
 
 Not on the Play Store yet — the APK on the Releases page is the official Android download.
 
@@ -66,9 +66,11 @@ First, **get a free key** (both apps use it): open [aistudio.google.com/apikey](
 
 ### Floating mic (Android)
 
-The floating-mic edition is the same app plus a small mic that appears next to your usual keyboard (Gboard, Samsung Keyboard, …) whenever you type: tap it, speak, tap it again — no switching keyboards. It's a separate file, `Plainspoken-android-<version>-floating-mic.apk`, because the floating mic is an accessibility service, and in some countries (India among them) Google Play Protect refuses to install such apps from a browser or file manager — you see "App not installed", and the switch to turn Play Protect off is greyed out. Apps installed from a computer over USB aren't blocked, so that's how this edition is installed. It replaces the standard app and keeps your key, settings and history.
+The floating-mic edition is the same app plus a small mic that appears next to your usual keyboard (Gboard, Samsung Keyboard, …) whenever you type: tap it, speak, tap it again — no switching keyboards. It's a separate file, `Plainspoken-android-<version>-floating-mic.apk`, because the floating mic is an accessibility service, and in some countries (India among them) Google Play Protect refuses to install such apps from a browser or file manager — you see "App not installed", and the switch to turn Play Protect off is greyed out. There are two ways round it. Either way, it replaces the standard app and keeps your key, settings and history.
 
-You need a Windows PC and the phone's USB cable. It takes about ten minutes the first time.
+**On the phone (easiest):** open the **Play Store**, tap your profile picture (top right) → **Play Protect** → ⚙ (top right) and turn off **Scan apps with Play Protect**. Open the floating-mic APK and install it, then turn the scanning back on. Open Plainspoken and follow the checklist to turn on the floating mic (Android 13 and later first ask you to allow "restricted settings" — the checklist shows how).
+
+**From a computer over USB,** if the phone way doesn't work. Installs over USB aren't blocked and don't need the "restricted settings" step. You need a Windows PC and the phone's USB cable; it takes about ten minutes the first time.
 
 1. **On the phone, turn on USB debugging.** Settings → About phone → tap **Build number** seven times (on some phones it's under Software information) until it says you're now a developer. Then go to Settings → System → **Developer options** and turn on **USB debugging**.
 2. **On the PC, get Android's install tool.** Download **SDK Platform-Tools for Windows** from Google at [developer.android.com/tools/releases/platform-tools](https://developer.android.com/tools/releases/platform-tools) and unzip it into, for example, `Documents` — you get a folder called `platform-tools`. Download `Plainspoken-android-<version>-floating-mic.apk` from the [Releases page](https://github.com/himanshuafmc/plainspoken/releases/latest) into that same `platform-tools` folder.
@@ -77,7 +79,7 @@ You need a Windows PC and the phone's USB cable. It takes about ten minutes the 
 5. **On the phone,** open Plainspoken: the checklist now has **Turn on the floating mic**. Tap **Open Accessibility settings**, choose **Plainspoken floating mic** and switch it on. (Apps installed over USB don't need the "restricted settings" step.)
 6. You can turn USB debugging off again in Developer options.
 
-To update, download the new floating-mic APK and repeat steps 3 and 4. To go back to the standard edition, simply install the standard APK on the phone — it replaces this one and keeps your settings. On a Mac or Linux PC, download Platform-Tools for that system, open a terminal in the folder and type `./adb` instead of `adb`.
+To update, install the new floating-mic APK the same way (over USB: steps 3 and 4). To go back to the standard edition, simply install the standard APK on the phone — it replaces this one and keeps your settings. On a Mac or Linux PC, download Platform-Tools for that system, open a terminal in the folder and type `./adb` instead of `adb`.
 
 Both builds are made by GitHub Actions straight from this source code, and the release notes list each file's SHA-256.
 
@@ -143,9 +145,9 @@ Windows: right-click the tray icon → **Settings…** · Android: open the Plai
 | "Didn't catch that" | The recording was very short or silent. Speak a bit louder or closer to the microphone. |
 | Windows: "Microphone access is turned off for desktop apps" | Click the message and turn on **Let desktop apps access your microphone** in Windows Settings. |
 | Android: "Plainspoken needs permission to use the microphone" | Tap **Allow**. If Android no longer asks, open the app's settings → Permissions → Microphone → Allow. |
-| Android: "App not installed", or Play Protect blocks the install | Install the standard APK, `Plainspoken-android-<version>.apk` — the one without "floating-mic" in its name. The floating-mic edition has to be installed from a computer: see [Floating mic (Android)](#floating-mic-android). |
+| Android: "App not installed", or Play Protect blocks the install | Install the standard APK, `Plainspoken-android-<version>.apk` — the one without "floating-mic" in its name. For the floating-mic edition, turn off Play Protect's app scanning while you install it, or install it from a computer: see [Floating mic (Android)](#floating-mic-android). |
 | Android: the floating mic doesn't appear | Open the Plainspoken app — its checklist shows whether the floating mic is on. It appears only while a keyboard is showing, and not over the Plainspoken keyboard. |
-| Android: "Restricted setting" when turning on the floating mic | This happens when the floating-mic edition was installed from the phone rather than over USB. Open Plainspoken's App info → ⋮ (top right) → **Allow restricted settings**, then switch it on again. |
+| Android: "Restricted setting" when turning on the floating mic | Android 13 and later ask for this when the floating-mic edition was installed on the phone. Open Plainspoken's App info → ⋮ (top right) → **Allow restricted settings**, then switch it on again. |
 | Android: the floating mic says Android didn't let it use the microphone | Please report it with the log (Settings → Export the log) and use the Plainspoken keyboard meanwhile. |
 | Android: the Plainspoken keyboard doesn't appear | Open the Plainspoken app — its checklist shows which step is missing (keyboard turned on, keyboard chosen). |
 | "Copied — …" | That text box couldn't take the text directly. Paste it (Windows: Ctrl + V; Android: long-press the box → Paste). |
@@ -158,7 +160,7 @@ Nothing you dictate is lost: if anything fails, the recording is kept until it's
 - Google's free tier is small: a few requests a minute per model, and a daily cap (in September 2026 Google's own error message said 25 a day for the main speech model). When a limit is hit, or the service is slow, Plainspoken switches to your backup service by itself (by default the general Gemini model, gemini-3.5-flash).
 - Hindi output script (Roman or Devanagari) can vary.
 - Windows: text can't be typed into apps running **as Administrator** (a Windows security rule); Plainspoken copies it instead. The app isn't code-signed, so SmartScreen warns on first run.
-- Android: not on the Play Store yet, so updates are a new download from the Releases page, and the floating-mic edition has to be installed from a computer.
+- Android: not on the Play Store yet, so updates are a new download from the Releases page, and the floating-mic edition needs Play Protect's scanning turned off while it installs (or a computer).
 - Android: the floating mic types through Android's accessibility interface. A few apps (some games, banking apps and custom editors) don't accept text that way; then the text is copied and you paste it, or use the Plainspoken keyboard.
 - The Sarvam, OpenAI-compatible, Deepgram and ElevenLabs connections follow those services' published APIs; if one misbehaves, please report it with the log.
 - Windows: learning corrections works in apps that let Windows read their text boxes (most do; some, such as a few terminals and games, don't).

@@ -335,7 +335,7 @@ class MainActivity : Activity() {
 
         /** Shown in the standard edition, which has no floating mic. */
         const val FLOATING_MIC_EDITION_NOTE = "Want a mic that floats next to your usual keyboard, so you never switch keyboards? " +
-            "It's in the floating-mic edition of Plainspoken, which you install from a computer — see “Floating mic” in the README " +
+            "It's in the floating-mic edition of Plainspoken, which needs one extra install step — see “Floating mic” in the README " +
             "at github.com/himanshuafmc/plainspoken."
 
         const val NOTICE = "Your voice is sent to the speech services you choose, with your own keys. On free tiers (such as Google's) " +

@@ -18,7 +18,8 @@ It is built with the Android Gradle Plugin 9, which compiles the Kotlin code its
 There are two editions (product flavors) with the same application id and signing key: `standard` (the keyboard) and
 `floatingMic`, which adds the floating mic's accessibility service in `app/src/floatingMic/AndroidManifest.xml`. They
 share all code. The floating mic is a separate APK because Play Protect blocks installing apps with an accessibility
-service from the phone in some countries; it is installed over USB instead (see the README and `docs/DECISIONS.md`).
+service from the phone in some countries; it is installed with Play Protect's scanning briefly off, or over USB (see the
+README and `docs/DECISIONS.md`).
 
 ## Build and test
 
