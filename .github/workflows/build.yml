@@ -134,6 +134,10 @@ jobs:
           suffix=$([ "${{ steps.key.outputs.signed }}" = "true" ] && echo "" || echo "-test")
           cp app/build/outputs/apk/release/app-release.apk "../Plainspoken-android-$v$suffix.apk"
           ls -l ../*.apk
+          # Which key signed it, and the package details Android checks when it installs an update.
+          bt=$(ls -d "$ANDROID_HOME"/build-tools/* | sort -V | tail -1)
+          "$bt/apksigner" verify --print-certs "../Plainspoken-android-$v$suffix.apk" | grep -E "SHA-256|DN:"
+          "$bt/aapt2" dump badging "../Plainspoken-android-$v$suffix.apk" | grep -E "^package:|sdkVersion|targetSdkVersion"
       - uses: actions/upload-artifact@v7
         with:
           name: android
