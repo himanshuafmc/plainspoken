@@ -203,7 +203,9 @@ For each: [ ] tap mic → it turns into a green ✓ with a moving halo and "List
 
 ## P. Floating mic (0.5.0)
 
-- [ ] Install over 0.4.0 → open Plainspoken → the checklist shows "Turn on the floating mic". Open Accessibility settings → Plainspoken floating mic → On. (Android 13+: if it says "Restricted setting", App info → ⋮ → Allow restricted settings, then again.) The checklist ticks it off.
+- [ ] **Standard APK** (`Plainspoken-android-0.5.0.apk`): download it on the phone and install over 0.4.0 → it installs (no "App not installed"). The checklist has no floating-mic step; Settings → Floating mic says it's in the floating-mic edition. The keyboard works as in 0.4.0.
+- [ ] **Floating-mic APK over USB**, following README → Floating mic (Android): `adb devices` lists the phone → `adb install -r …-floating-mic.apk` says Success → the app keeps the key, settings and history.
+- [ ] Open Plainspoken → the checklist shows "Turn on the floating mic". Open Accessibility settings → Plainspoken floating mic → On (no "Restricted setting" after a USB install). The checklist ticks it off.
 - [ ] With Gboard (or Samsung Keyboard) as your keyboard, tap a text box in WhatsApp → the mic appears at the right, above the keyboard. Close the keyboard → it disappears. Tap the box again → it's back. In a password box → no mic.
 - [ ] **Tap** the mic → it turns green ✓ with a level halo, a short vibration; speak → **tap** again → spinner → text appears at the cursor in WhatsApp; the cursor is after the text. Dictate again → the two join with a space.
 - [ ] **Hold** the mic, speak, let go → text inserted. Hold for under half a second → it keeps listening until tapped.
@@ -215,3 +217,4 @@ For each: [ ] tap mic → it turns into a green ✓ with a moving halo and "List
 - [ ] Switch to the Plainspoken keyboard → the floating mic hides (the keyboard has its own mic). Switch back to Gboard → it returns.
 - [ ] Settings → Floating mic → "Show the floating mic" off → it never appears; on → it's back.
 - [ ] If the label ever says Android didn't let the floating mic use the microphone: note the phone model and Android version, export the log and report it.
+- [ ] Install the standard APK from the phone over the floating-mic edition → it installs, the floating mic is gone, settings are kept.

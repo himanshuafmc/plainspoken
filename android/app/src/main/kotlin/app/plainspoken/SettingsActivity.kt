@@ -80,6 +80,11 @@ class SettingsActivity : Activity() {
     private fun floatingMicSection() {
         val card = ui.card(content)
         ui.heading(card, "Floating mic")
+        if (!DotPrefs.available(this)) {
+            ui.text(card, MainActivity.FLOATING_MIC_EDITION_NOTE, muted = true, sizeSp = 14f)
+            return
+        }
+
         val prefs = DotPrefs(this)
         if (DotPrefs.serviceEnabled(this)) {
             ui.text(card, "On: a small mic appears next to your keyboard in any app. Tap it to start and again to finish, or hold it " +

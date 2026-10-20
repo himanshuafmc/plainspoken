@@ -1,7 +1,7 @@
 # Plainspoken for Android
 
-The Android app: a **floating mic** that works next to any keyboard (an accessibility service), a **voice keyboard**
-with a big mic button, and a small app for setup, settings and recent transcripts. It behaves like the Windows app because both follow [`docs/SPEC.md`](../docs/SPEC.md) and are tested
+The Android app: a **voice keyboard** with a big mic button, a **floating mic** that works next to any keyboard (an
+accessibility service, in the floating-mic edition only), and a small app for setup, settings and recent transcripts. It behaves like the Windows app because both follow [`docs/SPEC.md`](../docs/SPEC.md) and are tested
 against the same files in [`shared/test-fixtures/`](../shared/test-fixtures).
 
 ## Layout
@@ -15,6 +15,11 @@ The app targets Android 8.0+ (API 26) and Android 15 (API 35). Its only librarie
 and kotlinx.serialization, plus three small AndroidX libraries that OkHttp itself needs (see `THIRD-PARTY-NOTICES.md`).
 It is built with the Android Gradle Plugin 9, which compiles the Kotlin code itself.
 
+There are two editions (product flavors) with the same application id and signing key: `standard` (the keyboard) and
+`floatingMic`, which adds the floating mic's accessibility service in `app/src/floatingMic/AndroidManifest.xml`. They
+share all code. The floating mic is a separate APK because Play Protect blocks installing apps with an accessibility
+service from the phone in some countries; it is installed over USB instead (see the README and `docs/DECISIONS.md`).
+
 ## Build and test
 
 Needs JDK 17 and, for the app, the Android SDK (API 37).
@@ -22,8 +27,8 @@ Needs JDK 17 and, for the app, the Android SDK (API 37).
 ```
 cd android
 ./gradlew -p core test               # core tests: any machine, no Android SDK needed
-./gradlew :app:assembleRelease       # the APK (app/build/outputs/apk/release/)
-./gradlew :app:lintRelease
+./gradlew :app:assembleRelease       # both APKs (app/build/outputs/apk/standard/release/ and …/floatingMic/release/)
+./gradlew :app:lintStandardRelease :app:lintFloatingMicRelease
 ./gradlew -p core cleanupEval        # optional: score the clean-up step on shared/test-fixtures/cleanup-cases.json
 ```
 

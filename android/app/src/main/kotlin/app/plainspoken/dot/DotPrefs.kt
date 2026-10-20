@@ -41,6 +41,14 @@ class DotPrefs(context: Context) {
         /** Above a typical message box, so the dot doesn't cover a Send button. */
         const val DEFAULT_GAP_DP = 72
 
+        /** Whether this is the floating-mic edition (only it declares the accessibility service). */
+        fun available(context: Context): Boolean = try {
+            context.packageManager.getServiceInfo(ComponentName(context, DictationDot::class.java), 0)
+            true
+        } catch (_: android.content.pm.PackageManager.NameNotFoundException) {
+            false
+        }
+
         /** Whether the user has switched on the floating mic in Android's Accessibility settings. */
         fun serviceEnabled(context: Context): Boolean {
             val list = Settings.Secure.getString(context.contentResolver, Settings.Secure.ENABLED_ACCESSIBILITY_SERVICES) ?: return false

@@ -324,7 +324,8 @@ Windows core and is tested against the same `shared/test-fixtures/` (API shapes,
 - **Audio (§3):** `AudioRecord` captures 16 kHz mono PCM16 directly (source `VOICE_RECOGNITION`, falling back to `MIC`), so no resampling is needed. Blocks of 100 ms feed live streaming.
 - **Insertion (§5):** `InputConnection.commitText`. A space is added in front when the cursor sits right after a word. If the text box has gone (the keyboard was closed while transcribing) or refuses the text, it is copied to the clipboard instead ("Copied — long-press the text box and tap Paste"). The keyboard also has space, comma, full stop, delete (repeats while held) and an enter key that performs the text box's action (Send, Search, …).
 - **Closing the keyboard while listening** stops and transcribes, as if ✓ was tapped.
-- **Floating mic (0.5.0):** an accessibility service (`dot/DictationDot`) shows a 60 dp mic as an accessibility overlay
+- **Floating mic (0.5.0, floating-mic edition only):** an accessibility service (`dot/DictationDot`, declared only in the
+  `floatingMic` build) shows a 60 dp mic as an accessibility overlay
   (no "display over other apps" permission) while the focused node is an editable, non-password text box **and** an
   on-screen keyboard window is showing, unless the Plainspoken keyboard is the current keyboard. It sits at the right
   edge, 72 dp above the keyboard's top; dragging it moves it, and on release it snaps to the nearer edge and remembers

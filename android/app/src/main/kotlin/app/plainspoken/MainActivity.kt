@@ -102,7 +102,8 @@ class MainActivity : Activity() {
         val micOk = checkSelfPermission(Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED
         val enabledOk = keyboardEnabled()
         val chosenOk = keyboardChosen()
-        val dotOk = DotPrefs.serviceEnabled(this)
+        val dotAvailable = DotPrefs.available(this)
+        val dotOk = dotAvailable && DotPrefs.serviceEnabled(this)
         val allOk = keyOk && noticeOk && micOk && (dotOk || (enabledOk && chosenOk))
 
         if (allOk) {
@@ -113,8 +114,12 @@ class MainActivity : Activity() {
                     "or hold it while you speak and let go. Drag it to move it.", muted = true)
             } else {
                 ui.text(card, "In any app, tap a text box, make sure the Plainspoken keyboard is showing, tap the mic and speak. Tap ✓ when you're done.", muted = true)
-                ui.text(card, "Tip: the floating mic works with your usual keyboard, so you don't have to switch keyboards.", muted = true, sizeSp = 14f)
-                ui.button(card, "Turn on the floating mic", primary = false) { openAccessibilitySettings() }
+                if (dotAvailable) {
+                    ui.text(card, "Tip: the floating mic works with your usual keyboard, so you don't have to switch keyboards.", muted = true, sizeSp = 14f)
+                    ui.button(card, "Turn on the floating mic", primary = false) { openAccessibilitySettings() }
+                } else {
+                    ui.text(card, FLOATING_MIC_EDITION_NOTE, muted = true, sizeSp = 14f)
+                }
             }
         } else {
             val card = ui.card(content)
@@ -133,7 +138,7 @@ class MainActivity : Activity() {
             step(card, 4, "Allow the microphone", "Only used while you dictate.", micOk) {
                 ui.button(it, "Allow microphone") { askMicrophone() }
             }
-            step(
+            if (dotAvailable) step(
                 card, 5, "Turn on the floating mic (recommended)",
                 "A small mic appears next to your usual keyboard in any app: tap it to dictate, no keyboard switching. " +
                     "Open Accessibility settings, tap Plainspoken floating mic (it may be under “Downloaded apps” or “Installed apps”) " +
@@ -155,11 +160,12 @@ class MainActivity : Activity() {
                 }
             }
             if (!dotOk) {
-                ui.text(card, "Or use the Plainspoken keyboard instead:", muted = true, sizeSp = 14f)
-                step(card, 6, "Turn on the Plainspoken keyboard", "In the list, switch on Plainspoken. Android shows a standard warning for every keyboard — Plainspoken only sends your voice to your speech service when you tap the mic.", enabledOk) {
+                if (dotAvailable) ui.text(card, "Or use the Plainspoken keyboard instead:", muted = true, sizeSp = 14f)
+                val first = if (dotAvailable) 6 else 5
+                step(card, first, "Turn on the Plainspoken keyboard", "In the list, switch on Plainspoken. Android shows a standard warning for every keyboard — Plainspoken only sends your voice to your speech service when you tap the mic.", enabledOk) {
                     ui.button(it, "Open keyboard settings") { startActivity(Intent(Settings.ACTION_INPUT_METHOD_SETTINGS)) }
                 }
-                step(card, 7, "Choose it", "Pick Plainspoken. Later, switch keyboards with the 🌐 key or the keyboard button at the bottom of the screen.", chosenOk) {
+                step(card, first + 1, "Choose it", "Pick Plainspoken. Later, switch keyboards with the 🌐 key or the keyboard button at the bottom of the screen.", chosenOk) {
                     ui.button(it, "Choose keyboard") { getSystemService(InputMethodManager::class.java)?.showInputMethodPicker() }
                 }
             }
@@ -326,6 +332,11 @@ class MainActivity : Activity() {
     companion object {
         const val EXTRA_ASK_MICROPHONE = "askMicrophone"
         private const val REQUEST_MIC = 1
+
+        /** Shown in the standard edition, which has no floating mic. */
+        const val FLOATING_MIC_EDITION_NOTE = "Want a mic that floats next to your usual keyboard, so you never switch keyboards? " +
+            "It's in the floating-mic edition of Plainspoken, which you install from a computer — see “Floating mic” in the README " +
+            "at github.com/himanshuafmc/plainspoken."
 
         const val NOTICE = "Your voice is sent to the speech services you choose, with your own keys. On free tiers (such as Google's) " +
             "the provider may use your recordings to improve its products. Do not dictate official, confidential or classified information."

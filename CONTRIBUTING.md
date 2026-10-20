@@ -23,7 +23,7 @@ dotnet test windows/tests/Plainspoken.Core.Tests
 ```
 cd android
 ./gradlew -p core test
-./gradlew :app:assembleRelease :app:lintRelease
+./gradlew :app:assembleRelease :app:lintStandardRelease :app:lintFloatingMicRelease
 ```
 
 The clean-up step is tuned with `shared/test-fixtures/cleanup-cases.json`; `./gradlew -p core cleanupEval` (in

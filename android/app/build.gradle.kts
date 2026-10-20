@@ -25,6 +25,20 @@ android {
         versionName = appVersion
     }
 
+    // Two editions of the same app (same package, same key, so either replaces the other with settings kept):
+    // "standard" and "floatingMic", which adds the floating mic's accessibility service (src/floatingMic/AndroidManifest.xml).
+    // They are separate because Play Protect in India blocks installing apps that declare an accessibility service
+    // from a browser or file manager; the floating-mic edition is installed from a computer instead (see README).
+    flavorDimensions += "edition"
+    productFlavors {
+        create("standard") {
+            dimension = "edition"
+        }
+        create("floatingMic") {
+            dimension = "edition"
+        }
+    }
+
     signingConfigs {
         if (keystorePath != null) {
             create("release") {
