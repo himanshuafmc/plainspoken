@@ -9,14 +9,24 @@ import kotlinx.coroutines.delay
 /**
  * Puts dictated text into another app's text box through accessibility actions, at the cursor:
  * first by setting the box's text (the text before the cursor + the dictation + the text after it), checked afterwards;
- * if the app doesn't support that, by pasting it. Never touches password boxes.
+ * if the app doesn't support that, or the box may be showing only its placeholder, by pasting it. Never touches password
+ * boxes.
  */
 object FieldWriter {
     enum class Result { SET, PASTED, FAILED }
 
-    /** The box's text, without its grey placeholder ("Type a message") when it is empty. */
-    fun textOf(node: AccessibilityNodeInfo): String =
-        if (node.isShowingHintText) "" else node.text?.toString().orEmpty()
+    /** The box's text, without its grey placeholder ("Message", "Type a message") when it is empty. */
+    fun textOf(node: AccessibilityNodeInfo): String {
+        val text = node.text?.toString().orEmpty()
+        return if (node.isShowingHintText || text == node.hintText?.toString() || mayBePlaceholder(node)) "" else text
+    }
+
+    /**
+     * Some apps (WhatsApp among them) report an empty box's placeholder as its text without flagging it. The cursor
+     * can't be put in a placeholder, so text that doesn't offer to move the cursor probably is one.
+     */
+    private fun mayBePlaceholder(node: AccessibilityNodeInfo): Boolean =
+        !node.text.isNullOrEmpty() && node.actionList.none { it.id == AccessibilityNodeInfo.ACTION_SET_SELECTION }
 
     suspend fun insert(node: AccessibilityNodeInfo, text: String, clipboard: ClipboardManager?): Result {
         if (node.isPassword || !node.isEditable) return Result.FAILED
@@ -34,8 +44,10 @@ object FieldWriter {
         if (start > 0 && !current[start - 1].isWhitespace() && piece.firstOrNull()?.isLetterOrDigit() == true) piece = " $piece"
         val updated = current.substring(0, start) + piece + current.substring(end)
 
+        // A box that may be showing only its placeholder gets a paste: if its text was real after all, setting the box to
+        // the dictation alone would wipe it.
         val supportsSetText = node.actionList.any { it.id == AccessibilityNodeInfo.ACTION_SET_TEXT }
-        if (supportsSetText) {
+        if (supportsSetText && !mayBePlaceholder(node)) {
             val args = Bundle().apply { putCharSequence(AccessibilityNodeInfo.ACTION_ARGUMENT_SET_TEXT_CHARSEQUENCE, updated) }
             // Some apps accept the action but ignore it; check before trusting it. The cursor is moved only after the new
             // text shows, because Jetpack Compose apps apply a cursor move to the text they had before.

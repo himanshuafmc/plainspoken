@@ -334,11 +334,13 @@ Windows core and is tested against the same `shared/test-fixtures/` (API shapes,
   second tap finishes; a press held ≥ 0.5 s finishes on release; moving the finger within 1.2 s of touching turns the
   press into a drag and silently discards the recording it started. The text goes into the box that had focus when
   dictation started: `ACTION_SET_TEXT` with the text before the cursor + dictation + text after it (placeholder text
-  ignored), then the result is checked (for up to 0.3 s, since Compose apps show it a frame later) and the cursor is put
-  after the dictation; if the app doesn't support or ignores that, the text is pasted (`ACTION_PASTE`, which leaves it
-  on the clipboard); if the box is gone, it is copied. Hints, errors (with Retry / Open app) and the vocabulary offer
-  appear in a small label beside the dot. Learning: at the next dictation in the same app within 10 minutes, the box's
-  text (around the cursor for long texts) is compared with what was inserted, and corrected words are offered after that
+  ignored: flagged as showing the hint, equal to the hint, or text that offers no `ACTION_SET_SELECTION`), then the
+  result is checked (for up to 0.3 s, since Compose apps show it a frame later) and the cursor is put after the
+  dictation; if the app doesn't support or ignores that, or the box's text is only presumed a placeholder by that last
+  test (setting the text could wipe it if it were real), the text is pasted (`ACTION_PASTE`, which leaves it on the
+  clipboard); if the box is gone, it is copied. Hints, errors (with Retry / Open app) and the vocabulary offer appear in
+  a small label beside the dot. Learning: at the next dictation in the same app within 10 minutes, the box's text
+  (around the cursor for long texts) is compared with what was inserted, and corrected words are offered after that
   dictation. The dot records in the accessibility service, which Android binds with the foreground capabilities needed
   for the microphone; if Android still delivers only silence, the label says so and the log records it.
 - **Password boxes:** the mic is disabled (no audio is recorded or sent). **Incognito text boxes** (`IME_FLAG_NO_PERSONALIZED_LEARNING`): the transcript is not added to history.
