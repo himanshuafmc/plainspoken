@@ -1,4 +1,5 @@
 using System.Net.WebSockets;
+using System.Text.Json.Nodes;
 using System.Threading.Channels;
 using Plainspoken.Core.Logging;
 using Plainspoken.Core.Settings;
@@ -62,6 +63,9 @@ internal sealed class FakeStreamSocket(Func<string, IEnumerable<string>>? onText
 
     public async Task<string?> ReceiveAsync(CancellationToken ct) => await _incoming.Reader.ReadAsync(ct);
 
+    /// <summary>A message the server sends on its own, not in answer to a frame.</summary>
+    public void ServerSends(string message) => _incoming.Writer.TryWrite(message);
+
     public ValueTask DisposeAsync()
     {
         _incoming.Writer.TryWrite(null);
@@ -71,6 +75,11 @@ internal sealed class FakeStreamSocket(Func<string, IEnumerable<string>>? onText
 
 public class StreamingTests
 {
+    private const string SpeechStarted = """{"type":"events","data":{"signal_type":"START_SPEECH","occured_at":0.4}}""";
+    private const string SpeechEnded = """{"type":"events","data":{"signal_type":"END_SPEECH","occured_at":2.1}}""";
+
+    private static string Transcript(string text) => new JsonObject { ["type"] = "data", ["data"] = new JsonObject { ["transcript"] = text } }.ToJsonString();
+
     private static PlainspokenSettings Settings() =>
         new PlainspokenSettings { Transcription = { ServiceOrder = ["sarvam", "deepgram"], CustomVocabulary = ["WhatsApp"] } }.Normalize();
 
@@ -107,6 +116,77 @@ public class StreamingTests
         Assert.Equal("test-key", socket.Headers["api-subscription-key"]);
         Assert.StartsWith("""{"audio":{"data":""", socket.SentText[0], StringComparison.Ordinal);
         Assert.Equal("""{"type":"flush"}""", socket.SentText[^1]);
+    }
+
+    [Fact]
+    public async Task Sarvam_waits_for_a_transcript_it_still_owes_after_the_flush()
+    {
+        // The transcript comes after QuietAfterEnd (300 ms here); the speech signals say it is still owed.
+        FakeStreamSocket? socket = null;
+        var started = false;
+        socket = new FakeStreamSocket(onText: msg =>
+        {
+            if (msg.Contains("\"flush\"", StringComparison.Ordinal))
+            {
+                _ = Task.Run(async () =>
+                {
+                    await Task.Delay(700);
+                    socket!.ServerSends(Transcript("kal meeting hai"));
+                });
+                return [];
+            }
+
+            if (started)
+            {
+                return [];
+            }
+
+            started = true;
+            return [SpeechStarted];
+        });
+        using var session = Transcriber(SarvamStreaming.Instance, socket).Start(Settings());
+        Push(session, 1.0);
+        Assert.Equal("kal meeting hai", await session.FinishAsync(default));
+        Assert.Contains("vad_signals=true", socket.Uri!.AbsoluteUri, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task Sarvam_stops_as_soon_as_no_transcript_is_owed()
+    {
+        var socket = new FakeStreamSocket(onText: msg => msg.Contains("\"flush\"", StringComparison.Ordinal)
+            ? [SpeechStarted, SpeechEnded, Transcript("theek hai")]
+            : []);
+        var t = new StreamingTranscriber(SarvamStreaming.Instance, () => socket, _ => "test-key", new ListLog())
+        {
+            QuietAfterEnd = TimeSpan.FromSeconds(3),
+            SettleAfterEnd = TimeSpan.FromMilliseconds(100),
+        };
+        using var session = t.Start(Settings());
+        Push(session, 0.5);
+        var watch = System.Diagnostics.Stopwatch.StartNew();
+        Assert.Equal("theek hai", await session.FinishAsync(default));
+        Assert.True(watch.ElapsedMilliseconds < 1500, $"waited {watch.ElapsedMilliseconds} ms for quiet instead of stopping");
+    }
+
+    [Fact]
+    public void Sarvams_speech_signals_say_how_many_transcripts_are_still_to_come()
+    {
+        var p = new StreamProgress();
+        var pieces = new List<string>();
+        var sarvam = SarvamStreaming.Instance;
+        Assert.Null(p.Owed);
+        sarvam.Apply(SpeechStarted, pieces, endSent: false, p);
+        Assert.Equal(1, p.Owed);
+        sarvam.Apply(Transcript("part"), pieces, endSent: false, p); // a long stretch may come in parts
+        Assert.Equal(1, p.Owed);
+        sarvam.Apply(SpeechEnded, pieces, endSent: false, p);
+        sarvam.Apply(SpeechStarted, pieces, endSent: false, p);
+        Assert.Equal(2, p.Owed);
+        sarvam.Apply(Transcript("one"), pieces, endSent: false, p);
+        Assert.Equal(1, p.Owed);
+        sarvam.Apply(Transcript("two"), pieces, endSent: true, p); // the flush ends the stretch still going on
+        Assert.Equal(0, p.Owed);
+        Assert.Equal(["part", "one", "two"], pieces);
     }
 
     [Fact]

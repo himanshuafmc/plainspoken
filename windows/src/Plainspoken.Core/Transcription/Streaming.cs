@@ -24,10 +24,57 @@ public interface IStreamProtocol
     Task SendAudioAsync(ILiveSocket socket, byte[] pcm, CancellationToken ct);
 
     /// <summary>
-    /// Reads one server message, adding finished text to <paramref name="pieces"/>. Returns true when the service has
-    /// confirmed the end of the stream. Throws <see cref="TranscriptionException"/> for an error message.
+    /// Reads one server message, adding finished text to <paramref name="pieces"/> and what it says about speech to
+    /// <paramref name="progress"/>. Returns true when the service has confirmed the end of the stream. Throws
+    /// <see cref="TranscriptionException"/> for an error message.
     /// </summary>
-    bool Apply(string message, List<string> pieces, bool endSent);
+    bool Apply(string message, List<string> pieces, bool endSent, StreamProgress progress);
+}
+
+/// <summary>
+/// What a service that reports when speech starts and ends (Sarvam's VAD signals) has said in one dictation, so the end
+/// can be told apart from a slow reply. Each stretch of speech gets a transcript once it ends, or once the end of audio
+/// ends it.
+/// </summary>
+public sealed class StreamProgress
+{
+    private bool _reported;
+    private bool _open;
+    private int _ended; // stretches that ended and haven't been transcribed yet
+
+    /// <summary>Transcripts still to come, or null when the service doesn't say.</summary>
+    public int? Owed => _reported ? _ended + (_open ? 1 : 0) : null;
+
+    public void SpeechStarted()
+    {
+        _reported = true;
+        _open = true;
+    }
+
+    public void SpeechEnded()
+    {
+        _reported = true;
+        if (!_open)
+        {
+            return;
+        }
+
+        _open = false;
+        _ended++;
+    }
+
+    /// <summary>A transcript arrived. Before the end of audio, one for a stretch still going on is only part of it.</summary>
+    public void Transcribed(bool endSent)
+    {
+        if (_ended > 0)
+        {
+            _ended--;
+        }
+        else if (endSent)
+        {
+            _open = false;
+        }
+    }
 }
 
 /// <summary>
@@ -45,8 +92,14 @@ public sealed class StreamingTranscriber(IStreamProtocol protocol, Func<ILiveSoc
 
     public TimeSpan StepTimeout { get; init; } = TimeSpan.FromSeconds(10);
 
-    /// <summary>After the end of audio, stop once nothing more arrives for this long.</summary>
+    /// <summary>After the end of audio, stop once nothing more arrives for this long (services that don't say what's to come).</summary>
     public TimeSpan QuietAfterEnd { get; init; } = TimeSpan.FromMilliseconds(900);
+
+    /// <summary>After the end of audio with no transcript owed, stop once nothing more arrives for this long.</summary>
+    public TimeSpan SettleAfterEnd { get; init; } = TimeSpan.FromMilliseconds(300);
+
+    /// <summary>After the end of audio, wait this long for each transcript the service still owes.</summary>
+    public TimeSpan OwedAfterEnd { get; init; } = TimeSpan.FromMilliseconds(2500);
 
     public int FailuresBeforePause { get; init; } = 2;
 
@@ -206,7 +259,9 @@ internal sealed class StreamingSession : ILiveSession
     {
         var protocol = _owner.Protocol;
         var pieces = new List<string>();
+        var progress = new StreamProgress();
         var endSent = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var ending = 0; // set before the end is sent, so a quick reply to it is read as one
         var messages = 0;
         Task<string?>? pending = null;
 
@@ -219,7 +274,13 @@ internal sealed class StreamingSession : ILiveSession
                 pending ??= socket.ReceiveAsync(ct);
                 if (endSent.Task.IsCompleted)
                 {
-                    if (await Task.WhenAny(pending, Task.Delay(_owner.QuietAfterEnd, _owner.Clock, ct)).ConfigureAwait(false) != pending)
+                    var wait = progress.Owed switch
+                    {
+                        null => _owner.QuietAfterEnd,
+                        0 => _owner.SettleAfterEnd,
+                        _ => _owner.OwedAfterEnd,
+                    };
+                    if (await Task.WhenAny(pending, Task.Delay(wait, _owner.Clock, ct)).ConfigureAwait(false) != pending)
                     {
                         ct.ThrowIfCancellationRequested();
                         return; // finished: nothing more came after the end of audio
@@ -244,7 +305,7 @@ internal sealed class StreamingSession : ILiveSession
                 }
 
                 messages++;
-                if (protocol.Apply(message, pieces, endSent.Task.IsCompleted))
+                if (protocol.Apply(message, pieces, Volatile.Read(ref ending) == 1 || endSent.Task.IsCompleted, progress))
                 {
                     return;
                 }
@@ -273,6 +334,7 @@ internal sealed class StreamingSession : ILiveSession
                 await protocol.SendAudioAsync(socket, Drain(buffer), ct).ConfigureAwait(false);
             }
 
+            Volatile.Write(ref ending, 1);
             if (!receive.IsCompleted)
             {
                 await socket.SendAsync(protocol.EndMessage, ct).ConfigureAwait(false);
@@ -367,7 +429,9 @@ internal static class StreamErrors
 
 /// <summary>
 /// Sarvam streaming (wss://api.sarvam.ai/speech-to-text/ws): raw 16 kHz PCM sent base64 in JSON audio messages,
-/// {"type":"flush"} at the end; replies {"type":"data","data":{"transcript":…}} per stretch of speech.
+/// {"type":"flush"} at the end; replies {"type":"data","data":{"transcript":…}} per stretch of speech, and
+/// {"type":"events","data":{"signal_type":"START_SPEECH"|"END_SPEECH"}} when each starts and ends (vad_signals), which
+/// is how the end is recognised: Sarvam doesn't confirm the flush.
 /// </summary>
 public sealed class SarvamStreaming : IStreamProtocol
 {
@@ -392,6 +456,7 @@ public sealed class SarvamStreaming : IStreamProtocol
             new("sample_rate", "16000"),
             new("input_audio_codec", "pcm_s16le"),
             new("flush_signal", "true"),
+            new("vad_signals", "true"),
         };
         if (config.VocabularyHints && config.Model.Contains("v4", StringComparison.Ordinal))
         {
@@ -415,9 +480,10 @@ public sealed class SarvamStreaming : IStreamProtocol
         return socket.SendAsync(message.ToJsonString(), ct);
     }
 
-    public bool Apply(string message, List<string> pieces, bool endSent)
+    public bool Apply(string message, List<string> pieces, bool endSent, StreamProgress progress)
     {
         ArgumentNullException.ThrowIfNull(pieces);
+        ArgumentNullException.ThrowIfNull(progress);
         if (StreamErrors.ParseObject(message) is not { } root)
         {
             return false;
@@ -432,13 +498,26 @@ public sealed class SarvamStreaming : IStreamProtocol
                     pieces.Add(text);
                 }
 
+                progress.Transcribed(endSent);
+                break;
+            case "events":
+                switch (EngineSupport.Str(data, "signal_type"))
+                {
+                    case "START_SPEECH":
+                        progress.SpeechStarted();
+                        break;
+                    case "END_SPEECH":
+                        progress.SpeechEnded();
+                        break;
+                }
+
                 break;
             case "error":
                 var error = $"{EngineSupport.Str(data, "code")} {EngineSupport.Str(data, "error")}";
                 throw new TranscriptionException(StreamErrors.KindFor(error), "live sarvam: " + Redactor.Clean(error, 200), service: Service);
         }
 
-        return false; // Sarvam doesn't confirm the flush; the session stops once it goes quiet
+        return false; // Sarvam doesn't confirm the flush; the session stops once no transcript is owed
     }
 }
 
@@ -474,7 +553,7 @@ public sealed class DeepgramStreaming : IStreamProtocol
         return socket.SendBinaryAsync(pcm, ct);
     }
 
-    public bool Apply(string message, List<string> pieces, bool endSent)
+    public bool Apply(string message, List<string> pieces, bool endSent, StreamProgress progress)
     {
         ArgumentNullException.ThrowIfNull(pieces);
         if (StreamErrors.ParseObject(message) is not { } root)

@@ -29,7 +29,7 @@ internal sealed class ServiceForm : Form
     private readonly TextBox _model = new() { Width = 300, Anchor = AnchorStyles.Left };
     private readonly TextBox _liveModel = new() { Width = 300, Anchor = AnchorStyles.Left };
     private readonly TextBox _baseUrl = new() { Width = 300, Anchor = AnchorStyles.Left };
-    private readonly CheckBox _streaming = Ui.Check("Stream while you speak (faster)");
+    private readonly CheckBox _streaming = Ui.Check("Stream while you speak");
     private readonly CheckBox _hints = Ui.Check("Send my vocabulary as hints");
     private readonly ComboBox _sarvamMode = Ui.Combo(SarvamModes.Select(m => (object)m.Label).ToArray());
     private readonly NumericUpDown _price = new() { Minimum = 0, Maximum = 100_000, DecimalPlaces = 2, Width = 100, Anchor = AnchorStyles.Left };
@@ -89,8 +89,8 @@ internal sealed class ServiceForm : Form
 
         if (service.Info().CanStream)
         {
-            Ui.Row(g, null, Ui.Note("Sends your voice as you speak, so the text is ready moments after you stop. Used when this is the " +
-                                    "main service; if streaming fails the normal way is used."));
+            Ui.Row(g, null, Ui.Note("Sends your voice as you speak, so the text is ready soon after you stop; it helps most with long " +
+                                    "dictations. Used when this is the main service; if streaming fails the normal way is used."));
         }
 
         if (!service.IsGemini())

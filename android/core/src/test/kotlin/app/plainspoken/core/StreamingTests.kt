@@ -8,6 +8,7 @@ import app.plainspoken.core.transcription.LiveSession
 import app.plainspoken.core.transcription.LiveSocket
 import app.plainspoken.core.transcription.LiveTranscriber
 import app.plainspoken.core.transcription.SarvamStream
+import app.plainspoken.core.transcription.StreamProgress
 import app.plainspoken.core.transcription.StreamProtocol
 import app.plainspoken.core.transcription.StreamingTranscriber
 import app.plainspoken.core.transcription.TranscriptionErrorKind
@@ -16,6 +17,8 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.channels.Channel
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import java.io.IOException
 import java.net.URI
@@ -26,6 +29,7 @@ import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
 import kotlin.test.assertFalse
+import kotlin.test.assertNull
 import kotlin.test.assertTrue
 
 /** A scripted streaming server: [onText] answers each text frame, [onBinary] each audio frame. */
@@ -64,6 +68,11 @@ class FakeStreamSocket(
 
     override suspend fun receive(): String? = incoming.receive()
 
+    /** A message the server sends on its own, not in answer to a frame. */
+    fun serverSends(message: String) {
+        incoming.trySend(message)
+    }
+
     override fun close() {
         incoming.trySend(null)
     }
@@ -99,6 +108,69 @@ class StreamingTests {
         assertEquals("test-key", socket.headers["Api-Subscription-Key"])
         assertTrue(socket.sentText.first().startsWith("""{"audio":{"data":"""))
         assertEquals("""{"type":"flush"}""", socket.sentText.last())
+    }
+
+    @Test
+    fun `sarvam waits for a transcript it still owes after the flush`() = runBlocking {
+        // The transcript comes after quietAfterEnd (300 ms here); the speech signals say it is still owed.
+        lateinit var socket: FakeStreamSocket
+        var started = false
+        socket = FakeStreamSocket(onText = { msg ->
+            when {
+                "\"flush\"" in msg -> {
+                    scope.launch {
+                        delay(700)
+                        socket.serverSends(transcript("kal meeting hai"))
+                    }
+                    emptyList()
+                }
+                started -> emptyList()
+                else -> {
+                    started = true
+                    listOf(SPEECH_STARTED)
+                }
+            }
+        })
+        val session = transcriber(SarvamStream, socket).start(settings())
+        push(session, 1.0)
+        assertEquals("kal meeting hai", session.finish())
+        assertTrue("vad_signals=true" in socket.uri.toString())
+    }
+
+    @Test
+    fun `sarvam stops as soon as no transcript is owed`() = runBlocking {
+        val socket = FakeStreamSocket(onText = { msg ->
+            if ("\"flush\"" in msg) listOf(SPEECH_STARTED, SPEECH_ENDED, transcript("theek hai")) else emptyList()
+        })
+        val t = StreamingTranscriber(
+            SarvamStream, { socket }, { "test-key" }, ListLog(), scope,
+            quietAfterEnd = Duration.ofSeconds(3), settleAfterEnd = Duration.ofMillis(100),
+        )
+        val session = t.start(settings())
+        push(session, 0.5)
+        val started = System.nanoTime()
+        assertEquals("theek hai", session.finish())
+        val waited = (System.nanoTime() - started) / 1_000_000
+        assertTrue(waited < 1500, "waited $waited ms for quiet instead of stopping")
+    }
+
+    @Test
+    fun `sarvam's speech signals say how many transcripts are still to come`() {
+        val p = StreamProgress()
+        val pieces = ArrayList<String>()
+        assertNull(p.owed)
+        SarvamStream.apply(SPEECH_STARTED, pieces, endSent = false, progress = p)
+        assertEquals(1, p.owed)
+        SarvamStream.apply(transcript("part"), pieces, endSent = false, progress = p) // a long stretch may come in parts
+        assertEquals(1, p.owed)
+        SarvamStream.apply(SPEECH_ENDED, pieces, endSent = false, progress = p)
+        SarvamStream.apply(SPEECH_STARTED, pieces, endSent = false, progress = p)
+        assertEquals(2, p.owed)
+        SarvamStream.apply(transcript("one"), pieces, endSent = false, progress = p)
+        assertEquals(1, p.owed)
+        SarvamStream.apply(transcript("two"), pieces, endSent = true, progress = p) // the flush ends the stretch still going on
+        assertEquals(0, p.owed)
+        assertEquals(listOf("part", "one", "two"), pieces)
     }
 
     @Test
@@ -169,5 +241,12 @@ class StreamingTests {
         assertFalse(router.canStart(settings().apply { transcription.liveStreaming = false }))
         first = null
         assertFalse(router.canStart(settings()))
+    }
+
+    private companion object {
+        const val SPEECH_STARTED = """{"type":"events","data":{"signal_type":"START_SPEECH","occured_at":0.4}}"""
+        const val SPEECH_ENDED = """{"type":"events","data":{"signal_type":"END_SPEECH","occured_at":2.1}}"""
+
+        fun transcript(text: String) = """{"type":"data","data":{"request_id":"a","transcript":"$text","metrics":{}}}"""
     }
 }

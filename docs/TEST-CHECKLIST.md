@@ -94,7 +94,7 @@ For each: [ ] text appears at the cursor, [ ] "um" removed and punctuation added
 - [ ] Settings → General → First backup → Sarvam → **Set up…** → paste a wrong key → **Test key** says it was not accepted; the right key → "Key works". OK → Save. The line under the services says every chosen service has a key.
 - [ ] Repeat for each service you use (OpenAI-compatible, Deepgram, ElevenLabs). For Groq, set the address to `https://api.groq.com/openai/v1` and the model to `whisper-large-v3-turbo`.
 - [ ] Make each service the main one in turn and dictate English, Hindi and Hinglish (5–10 s, with an "um" and a self-correction like "at 5, no, at 6") into Notepad: fillers gone, only the correction kept, punctuation right, Hinglish not translated. Time from stop to text: Sarvam ____ s, OpenAI ____ s, Deepgram ____ s, ElevenLabs ____ s.
-- [ ] Sarvam and Deepgram with **Stream while you speak** on and off (Set up…): compare the time to text.
+- [ ] Sarvam and Deepgram with **Stream while you speak** on and off (Set up…): compare the time to text. With Sarvam, on is no slower than off, and a long dictation with pauses is quicker; the log doesn't say "live: no text returned; using the normal engine".
 - [ ] Hindi words in: Roman letters vs Devanagari → the text follows it (with clean-up on).
 - [ ] Clean-up tab → **Off**: raw text from Sarvam/Deepgram with only "um"/"uh" removed. Back to Gemini Flash.
 - [ ] Clean-up → OpenAI-compatible with a chat key → Test key → dictate with Sarvam → tidy text. Back to Gemini Flash.
@@ -189,7 +189,7 @@ For each: [ ] tap mic → it turns into a green ✓ with a moving halo and "List
 - [ ] Repeat for each service you use (OpenAI-compatible, Deepgram, ElevenLabs). For Groq, set the address to `https://api.groq.com/openai/v1` and the model to `whisper-large-v3-turbo`.
 - [ ] **Move up** makes a service the main one; **Remove** takes it out. The keyboard uses the new main service on the next dictation.
 - [ ] With each service as the main one, dictate English, Hindi and Hinglish (5–10 s, with an "um" and a self-correction like "at 5, no, at 6"): text appears, fillers gone, only the correction kept, punctuation right, Hinglish not translated. Time from ✓ to text: Sarvam ____ s, OpenAI ____ s, Deepgram ____ s, ElevenLabs ____ s.
-- [ ] Sarvam and Deepgram with **Stream while you speak** on and off: compare the time to text.
+- [ ] Sarvam and Deepgram with **Stream while you speak** on and off: compare the time to text. With Sarvam, on is no slower than off, and a long dictation with pauses is quicker; the log doesn't say "live: no text returned; using the normal engine".
 - [ ] Hindi words setting: Roman letters vs Devanagari → the text follows it (with clean-up on).
 - [ ] Clean-up → **Off**: raw text from Sarvam/Deepgram, with only "um"/"uh" removed. Back to Gemini.
 - [ ] Give the main service a wrong key and keep a working backup: dictation still works (backup used); after two dictations the main one is skipped (the log says "paused").

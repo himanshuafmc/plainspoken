@@ -389,10 +389,12 @@ identical on both).
   a local filter removes only unambiguous filler sounds (um, uh, erm, hmm, aaa — not "aa"). Tuned with
   `shared/test-fixtures/cleanup-cases.json`.
 - **Streaming.** When the main usable service can stream and streaming is on for it, audio streams while the user
-  speaks: Gemini (§4.1a), Sarvam (`wss://…/speech-to-text/ws`, base64 PCM in JSON, `{"type":"flush"}` at the end, the
-  session ends 0.9 s after the last reply) or Deepgram (`wss://…/v1/listen`, binary linear16, `{"type":"Finalize"}`,
-  ends at the reply marked `from_finalize`). The streamed raw text goes through the same clean-up. After two failed
-  streams in a row, streaming for that service pauses 15 minutes.
+  speaks: Gemini (§4.1a), Sarvam (`wss://…/speech-to-text/ws`, base64 PCM in JSON, `{"type":"flush"}` at the end,
+  `vad_signals=true`: each stretch of speech it reports with `START_SPEECH` / `END_SPEECH` events gets one transcript,
+  so after the flush the session waits up to 2.5 s for each transcript still owed and ends once none is owed and 0.3 s
+  pass without a reply; with no signals, 0.9 s after the last reply) or Deepgram (`wss://…/v1/listen`, binary linear16,
+  `{"type":"Finalize"}`, ends at the reply marked `from_finalize`). The streamed raw text goes through the same
+  clean-up. After two failed streams in a row, streaming for that service pauses 15 minutes.
 - **Snippets.** `snippets` maps spoken triggers to text. A dictation that is only a trigger (ignoring case and
   punctuation) becomes its text; a trigger inside a sentence is replaced. The clean-up is told to keep triggers word for word.
 - **Hold-to-talk.** [Android] On the keyboard, a press that starts dictation and lasts ≥ 0.5 s finishes it on release; a
