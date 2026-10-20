@@ -19,15 +19,15 @@ Talk, and Plainspoken turns what you said into tidy, punctuated text in whatever
 WhatsApp, Outlook, Notepad, anything with a text box. "Um"s, repeats and false starts are removed, and lists,
 dates and amounts come out properly formatted.
 
-- **On Windows** press **Ctrl + Alt + Space**, speak, and press it again.
+- **On Windows** hold **Right Ctrl** while you speak and let go — or press **Ctrl + Alt + Space**, speak, and press it again.
 - **On Android** Plainspoken is a keyboard: tap the mic, speak, and tap **✓** — or hold the mic while you speak and let go.
 
 Both apps are the same Plainspoken: the same speech engine and clean-up, the same settings file, one release.
 
 ## Why Plainspoken
 
-- **Free, or pay only for what you use.** It works with Google's Gemini and your own free API key. On Android you can also use Sarvam, OpenAI (or any OpenAI-compatible service such as Groq), Deepgram or ElevenLabs with your own key, paying them per minute of audio. No subscription, no account with us.
-- **Private by design.** There are no Plainspoken servers and no tracking. Your audio goes only to Google (see [Privacy](#privacy)).
+- **Free, or pay only for what you use.** It works with Google's Gemini and your own free API key, or with Sarvam, OpenAI (or any OpenAI-compatible service such as Groq), Deepgram or ElevenLabs and your own key, paying them per minute of audio. No subscription, no account with us.
+- **Private by design.** There are no Plainspoken servers and no tracking. Your audio goes only to the speech service you choose (see [Privacy](#privacy)).
 - **Good at Indian English, Hindi and Hinglish**, including switching languages mid-sentence.
 - **Your PC and your phone.** Export your settings and vocabulary on one and import them on the other.
 - **Open source** under the GPL-3.0. Anyone can read, check and improve the code.
@@ -53,8 +53,8 @@ First, **get a free key** (both apps use it): open [aistudio.google.com/apikey](
 ### Windows (3 minutes)
 
 1. Unzip the download somewhere permanent (for example `Documents\Plainspoken`) and double-click `Plainspoken.exe`.
-2. Paste the key into the welcome window, click **Test key**, tick the notice and click **Finish**.
-3. Click where you want the text, press **Ctrl + Alt + Space**, speak, and press **Ctrl + Alt + Space** again. The text appears a moment later.
+2. Paste the key into the welcome window, click **Test key**, tick the notice and click **Finish**. (Using Sarvam, OpenAI, Deepgram or ElevenLabs instead? Tick the notice, click **Use another service…** and set it up in Settings.)
+3. Click where you want the text, hold **Right Ctrl**, speak, and let go — or press **Ctrl + Alt + Space**, speak, and press it again. The text appears a moment later.
 
 **"Windows protected your PC"?** Click **More info**, then **Run anyway**. It appears because Plainspoken isn't code-signed (certificates cost money every year), not because anything is wrong.
 
@@ -70,9 +70,12 @@ Both builds are made by GitHub Actions straight from this source code, and the r
 
 **Windows**
 
+- **Hold to talk:** hold **Right Ctrl**, speak, let go. A quick tap, or Right Ctrl in a shortcut, works as usual. (Settings → General can switch it to Right Alt or Right Shift, or off.)
 - **Start / stop:** **Ctrl + Alt + Space**, or click the small button at the bottom of the screen. While listening, a bar shows a timer and a sound-level meter; click the green **✓** (or press the hotkey again) to finish. **Esc** or **✕** cancels.
 - **The small button** stays near the bottom of the screen while idle. Click it to dictate, drag it anywhere, right-click for options. It hides during full-screen videos and presentations.
-- **Tray icon** (near the clock): left-click to start/stop; right-click for **Recent transcripts**, **Retry last dictation**, **Settings** and **About**.
+- **Tray icon** (near the clock): left-click to start/stop; right-click for **Recent transcripts**, **Retry last dictation**, **Settings**, **Speed and cost** and **About**.
+- **It learns your words:** fix a misheard name in the text box yourself; the next time you dictate in that window, Plainspoken offers to add the name to your vocabulary (click the green suggestion).
+- **Snippets:** save phrases like "insert my address" in Settings → Snippets, and saying them types the saved text.
 
 **Android**
 
@@ -83,7 +86,7 @@ Both builds are made by GitHub Actions straight from this source code, and the r
 - **It learns your words:** fix a misheard name with your usual keyboard, switch back to Plainspoken, and it offers to add the name to your vocabulary.
 - **Snippets:** save phrases like "insert my address" in Settings, and saying them types the saved text.
 
-**Tips for both:** speak normally and don't worry about "um"s. Say lists naturally ("first milk, second eggs…"). Add names and special words to the **Vocabulary** so they're spelled right. Hindi may come out in Roman letters (Hinglish style) or Devanagari — Google decides and doesn't offer a switch yet.
+**Tips for both:** speak normally and don't worry about "um"s. Say lists naturally ("first milk, second eggs…"). Add names and special words to the **Vocabulary** so they're spelled right. Choose Roman letters or Devanagari for Hindi words in Settings (Gemini's own models may still mix them).
 
 ## Settings
 
@@ -91,25 +94,25 @@ Windows: right-click the tray icon → **Settings…** · Android: open the Plai
 
 | Setting | What it does |
 |---|---|
-| Key | Your Gemini key, with **Test key**. Stored encrypted on that device only. |
-| Speech services (Android) | Choose the main service and up to two backups: Gemini, Sarvam, OpenAI-compatible, Deepgram, ElevenLabs — each with its own key, model, streaming switch and price. If one fails or is slow, the next takes over. |
-| Clean-up (Android) | Tidies raw text from Sarvam, OpenAI-compatible, Deepgram and ElevenLabs: "um"s and repeats removed, punctuation and grammar fixed, your corrections applied. Uses Gemini (default) or an OpenAI-compatible service. |
-| Hindi words (Android) | Roman letters ("kal meeting hai"), Devanagari, or as the service gives |
-| Snippets (Android) | Spoken shortcuts that type saved text |
+| Speech services | Choose the main service and up to two backups: Gemini, Sarvam, OpenAI-compatible, Deepgram, ElevenLabs — each with its own key (with **Test key**, stored encrypted on that device only), model, streaming switch and price. If one fails or is slow, the next takes over. Windows: Settings → General → **Set up…** |
+| Clean-up | Tidies raw text from Sarvam, OpenAI-compatible, Deepgram and ElevenLabs: "um"s and repeats removed, punctuation and grammar fixed, your corrections applied. Uses Gemini (default) or an OpenAI-compatible service. |
+| Hindi words | Roman letters ("kal meeting hai"), Devanagari, or as the service gives |
+| Snippets | Spoken shortcuts that type saved text |
 | Languages and style | English + Hindi, auto-detect or English only; **Smart** (clean) or **Verbatim** (every word) |
 | Vocabulary | Words and names to spell correctly, one per line (up to 1,000) |
-| Options | Trailing space, sounds, history, longest recording. Windows also: hotkey, paste or "type it out", start with Windows, the small on-screen button |
-| Advanced | Live streaming (on by default), backup engine, model names, API address, timeout. Android also: when to ask the backup too, compressed uploads, currency |
-| Export / import | Saves settings and vocabulary to a file — never your key. A file from Windows imports on Android and the other way round. |
+| Options | Trailing space, sounds, history, longest recording, when to ask the backup too, compressed uploads, currency. Windows also: hotkey, hold-to-talk key, paste or "type it out", start with Windows, the small on-screen button |
+| Advanced | Request timeout, export/import, folders |
+| Export / import | Saves settings, vocabulary and snippets to a file — never your keys. A file from Windows imports on Android and the other way round. |
 
 ## Privacy
 
-- Audio goes **only** to the speech service you use — Google's Gemini API by default; on Android also Sarvam, an OpenAI-compatible service, Deepgram or ElevenLabs if you set them up — using your own key. On Android, the raw text from those services goes to the clean-up service you chose (Gemini by default). Plainspoken has no servers, no analytics and no telemetry.
-- With **live streaming** (the default), audio is streamed to Google while you speak. If that fails, the recording is sent once more the normal way: short recordings travel inside the request and are never stored as files; long ones (over ~5 minutes) are uploaded and then **deleted straight after** transcription.
+- Audio goes **only** to the speech service you use — Google's Gemini API by default, or Sarvam, an OpenAI-compatible service, Deepgram or ElevenLabs if you set them up — using your own key. The raw text from those services goes to the clean-up service you chose (Gemini by default). Plainspoken has no servers, no analytics and no telemetry.
+- With **live streaming** (the default), audio is streamed to the service while you speak (Gemini, Sarvam and Deepgram can). If that fails, the recording is sent once more the normal way: short recordings travel inside the request and are never stored as files; long ones (over ~5 minutes) are uploaded and then **deleted straight after** transcription.
 - **On Google's free tier, Google may use your audio and text to improve its products.** Don't dictate official, confidential or classified information. (A paid Google key changes this — see Google's terms.)
 - Your keys are stored encrypted — Windows DPAPI on the PC, the Android Keystore on the phone — and are never written to logs or exported settings. The Android app is excluded from cloud backup.
 - Everything else stays on the device: settings, the last 20 transcripts, unsent recordings, speed statistics and logs. Logs and statistics contain timings and error codes, never your words.
 - On Android the microphone is only used while you dictate, and voice typing is off in password boxes.
+- To learn your corrections, the Windows app reads the text box you dictated into once, at your next dictation there, on your computer; nothing is saved or sent. Password boxes are never read. Turn it off in Settings → Vocabulary.
 
 ## Troubleshooting
 
@@ -117,8 +120,9 @@ Windows: right-click the tray icon → **Settings…** · Android: open the Plai
 |---|---|
 | "Add your free Gemini API key…" / "key was not accepted" | Paste the key again from AI Studio and tap **Test key** (Windows: Settings opens by itself; Android: tap **Open app**). |
 | "Free daily limit reached. Resets at …" | Google's free limit for today is used up; it resets at midnight US Pacific time (shown in your local time). Your recording is saved — **Retry** later. |
-| "Too many requests right now" | The free plan allows only a few requests per minute. Wait a minute, then **Retry**. On Android, add a backup service under Settings → Speech services and Plainspoken switches by itself. |
-| Android: "Your … account is out of credits" | Top up that service, or move another service to the top in Settings → Speech services. |
+| "Too many requests right now" | The free plan allows only a few requests per minute. Wait a minute, then **Retry**. Add a backup service in Settings and Plainspoken switches by itself. |
+| "Your … account is out of credits" | Top up that service, or make another service the main one in Settings. |
+| Windows: holding Right Ctrl does nothing | Hold it on its own for a moment before speaking; check Settings → General → Hold to talk. |
 | "No internet connection" | Reconnect, then **Retry** (Windows: tray menu → Retry last dictation → Ctrl + V; Android: the **Retry** key). |
 | "Didn't catch that" | The recording was very short or silent. Speak a bit louder or closer to the microphone. |
 | Windows: "Microphone access is turned off for desktop apps" | Click the message and turn on **Let desktop apps access your microphone** in Windows Settings. |
@@ -131,16 +135,15 @@ Nothing you dictate is lost: if anything fails, the recording is kept until it's
 
 ## Known limitations
 
-- Google's free tier is small: a few requests a minute per model, and a daily cap (in September 2026 Google's own error message said 25 a day for the main speech model). When a limit is hit, Plainspoken automatically tries a backup model. The backup is fast but less accurate — it can drop or invent words, especially in Hindi.
+- Google's free tier is small: a few requests a minute per model, and a daily cap (in September 2026 Google's own error message said 25 a day for the main speech model). When a limit is hit, or the service is slow, Plainspoken switches to your backup service by itself (by default the general Gemini model, gemini-3.5-flash).
 - Hindi output script (Roman or Devanagari) can vary.
 - Windows: text can't be typed into apps running **as Administrator** (a Windows security rule); Plainspoken copies it instead. The app isn't code-signed, so SmartScreen warns on first run.
 - Android: not on the Play Store yet, so updates are a new download from the Releases page. It's a voice keyboard: you switch to it to dictate and back for typing letters.
-- Android: the Sarvam, OpenAI-compatible, Deepgram and ElevenLabs connections follow those services' published APIs; if one misbehaves, please report it with the log.
-- Windows uses Gemini only for now; the other services, clean-up and snippets come to Windows in a later version.
+- The Sarvam, OpenAI-compatible, Deepgram and ElevenLabs connections follow those services' published APIs; if one misbehaves, please report it with the log.
+- Windows: learning corrections works in apps that let Windows read their text boxes (most do; some, such as a few terminals and games, don't).
 
 ## Roadmap
 
-- 🪟 Windows: any speech service, clean-up, snippets and hold-to-talk (as on Android)
 - 🫧 Android: an optional floating mic bubble, as well as the keyboard
 - 🛒 Android: Play Store listing
 - ✨ Live text appearing while you're still speaking

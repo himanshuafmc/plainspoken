@@ -12,11 +12,14 @@ namespace Plainspoken.Core.Transcription;
 
 /// <summary>
 /// A streaming transcription that receives audio while the user is still speaking,
-/// so the text is (nearly) ready when they stop. Experimental: callers must fall back
-/// to the normal engine if <see cref="FinishAsync"/> throws or returns nothing.
+/// so the text is (nearly) ready when they stop. Callers must fall back to the normal
+/// request if <see cref="FinishAsync"/> throws or returns nothing.
 /// </summary>
 public interface ILiveSession : IDisposable
 {
+    /// <summary>The service doing the streaming (its raw text may still need the clean-up step).</summary>
+    SpeechService Service { get; }
+
     /// <summary>Queues 16 kHz mono PCM16 samples. Safe to call from any thread; never blocks or throws.</summary>
     void Push(short[] samples);
 
@@ -39,9 +42,13 @@ public interface ILiveTranscriber
 /// <summary>Minimal WebSocket abstraction so the protocol can be unit-tested without a network.</summary>
 public interface ILiveSocket : IAsyncDisposable
 {
-    Task ConnectAsync(Uri uri, string? apiKey, CancellationToken ct);
+    /// <summary>Opens the socket with these handshake headers (the service's auth header).</summary>
+    Task ConnectAsync(Uri uri, IReadOnlyDictionary<string, string> headers, CancellationToken ct);
 
     Task SendAsync(string json, CancellationToken ct);
+
+    /// <summary>A binary frame (Deepgram takes raw PCM this way).</summary>
+    Task SendBinaryAsync(byte[] bytes, CancellationToken ct);
 
     /// <summary>Next text/binary message decoded as UTF-8, or null once the server has closed the connection.</summary>
     Task<string?> ReceiveAsync(CancellationToken ct);
@@ -57,11 +64,12 @@ public sealed class WebSocketLiveSocket : ILiveSocket
 
     public string? CloseReason { get; private set; }
 
-    public async Task ConnectAsync(Uri uri, string? apiKey, CancellationToken ct)
+    public async Task ConnectAsync(Uri uri, IReadOnlyDictionary<string, string> headers, CancellationToken ct)
     {
-        if (!string.IsNullOrWhiteSpace(apiKey))
+        ArgumentNullException.ThrowIfNull(headers);
+        foreach (var (name, value) in headers)
         {
-            _ws.Options.SetRequestHeader(GeminiClient.ApiKeyHeader, apiKey.Trim());
+            _ws.Options.SetRequestHeader(name, value);
         }
 
         _ws.Options.KeepAliveInterval = TimeSpan.FromSeconds(15);
@@ -70,6 +78,9 @@ public sealed class WebSocketLiveSocket : ILiveSocket
 
     public Task SendAsync(string json, CancellationToken ct) =>
         _ws.SendAsync(Encoding.UTF8.GetBytes(json), WebSocketMessageType.Text, true, ct);
+
+    public Task SendBinaryAsync(byte[] bytes, CancellationToken ct) =>
+        _ws.SendAsync(bytes, WebSocketMessageType.Binary, true, ct);
 
     public async Task<string?> ReceiveAsync(CancellationToken ct)
     {
@@ -310,6 +321,8 @@ internal sealed class GeminiLiveSession : ILiveSession
 
     private ILog Log => _owner.Log;
 
+    public SpeechService Service => SpeechService.Gemini;
+
     public void Push(short[] samples)
     {
         if (samples is { Length: > 0 } && _audio.Writer.TryWrite(samples))
@@ -384,7 +397,11 @@ internal sealed class GeminiLiveSession : ILiveSession
                 {
                     using (var step = StepToken(ct))
                     {
-                        await socket.ConnectAsync(GeminiLiveTranscriber.Endpoint(_settings.Transcription.ApiBaseUrl, version), _owner.ApiKey, step.Token)
+                        var key = _owner.ApiKey?.Trim();
+                        var headers = string.IsNullOrEmpty(key)
+                            ? new Dictionary<string, string>()
+                            : new Dictionary<string, string> { [GeminiClient.ApiKeyHeader] = key };
+                        await socket.ConnectAsync(GeminiLiveTranscriber.Endpoint(_settings.Transcription.ApiBaseUrl, version), headers, step.Token)
                             .ConfigureAwait(false);
                     }
                 }

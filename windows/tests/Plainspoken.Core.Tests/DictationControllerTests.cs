@@ -40,8 +40,10 @@ public sealed class DictationControllerTests : IDisposable
     public async Task Live_text_is_used_and_the_normal_engine_is_not_called()
     {
         _settings.Transcription.LiveStreaming = true;
-        _liveTranscriber.Result = "From the live model.";
+        _liveTranscriber.Result = "umm From the live model.";
         var c = Create();
+        var inserted = new List<string>();
+        c.Inserted += (_, text) => inserted.Add(text);
         _recorder.Audio = Speech(1);
 
         await c.ToggleAsync();
@@ -51,7 +53,9 @@ public sealed class DictationControllerTests : IDisposable
         Assert.True(session.Pushed > 0);          // audio streamed while recording
         Assert.True(session.Disposed);
         Assert.Equal(0, _transcriber.Calls);
+        Assert.Equal([("umm From the live model.", SpeechService.Sarvam)], _transcriber.Finished); // streamed text is still cleaned up
         Assert.Equal(["From the live model. "], _inserter.Inserted);
+        Assert.Equal(["From the live model."], inserted);
         Assert.Equal(0, _pending.Count);
         Assert.Null(_recorder.SampleSink);
     }
@@ -75,7 +79,7 @@ public sealed class DictationControllerTests : IDisposable
 
         Assert.Equal(2, _transcriber.Calls);
         Assert.Equal(["Batch text. ", "Batch text. "], _inserter.Inserted);
-        Assert.Contains(_log.Lines, l => l.Contains("using the normal engine", StringComparison.Ordinal));
+        Assert.Contains(_log.Lines, l => l.Contains("using the normal request", StringComparison.Ordinal));
     }
 
     [Fact]
@@ -489,7 +493,16 @@ public sealed class DictationControllerTests : IDisposable
                 throw Error;
             }
 
-            return new TranscriptionOutcome(Result, EngineKind.Transcribe);
+            return new TranscriptionOutcome(Result, SpeechService.Gemini);
+        }
+
+        public List<(string Raw, SpeechService Service)> Finished { get; } = [];
+
+        public Task<TranscriptionOutcome> FinishAsync(string raw, SpeechService service, TranscriptionRequest request, PlainspokenSettings settings,
+            IProgress<string>? status, long listenMs, CancellationToken ct)
+        {
+            Finished.Add((raw, service));
+            return Task.FromResult(new TranscriptionOutcome(raw.Replace("umm ", "", StringComparison.Ordinal), service, "fake"));
         }
     }
 
@@ -551,7 +564,8 @@ public sealed class DictationControllerTests : IDisposable
 
         public bool Available { get; set; } = true;
 
-        public bool CanStart(PlainspokenSettings settings) => Available;
+        // Like the app's LiveRouter: the setting decides whether to stream at all.
+        public bool CanStart(PlainspokenSettings settings) => Available && settings.Transcription.LiveStreaming;
 
         public ILiveSession Start(PlainspokenSettings settings)
         {
@@ -564,6 +578,8 @@ public sealed class DictationControllerTests : IDisposable
     private sealed class FakeLiveSession(FakeLiveTranscriber owner) : ILiveSession
     {
         public int Pushed { get; private set; }
+
+        public SpeechService Service => SpeechService.Sarvam;
 
         public bool Disposed { get; private set; }
 

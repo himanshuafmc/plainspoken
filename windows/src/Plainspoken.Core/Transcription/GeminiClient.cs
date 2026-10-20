@@ -199,7 +199,7 @@ public sealed class GeminiClient
         }
     }
 
-    private static TimeSpan? RetryAfter(RetryConditionHeaderValue? h)
+    internal static TimeSpan? RetryAfter(RetryConditionHeaderValue? h)
     {
         if (h?.Delta is { } d)
         {

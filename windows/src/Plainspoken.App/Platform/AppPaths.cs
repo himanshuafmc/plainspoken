@@ -14,6 +14,9 @@ internal static class AppPaths
 
     public static string HistoryFile => Path.Combine(LocalDir, "history.json");
 
+    /// <summary>Timings of recent dictations for "Speed and cost" (no text).</summary>
+    public static string StatsFile => Path.Combine(LocalDir, "stats.json");
+
     public static string PendingDir => Path.Combine(LocalDir, "pending");
 
     public static string LogsDir => Path.Combine(LocalDir, "logs");

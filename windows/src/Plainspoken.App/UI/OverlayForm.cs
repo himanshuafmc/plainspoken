@@ -11,6 +11,9 @@ internal enum PillMode
     Transcribing,
     Hint,
     Error,
+
+    /// <summary>A suggestion the user can accept with a click (for example adding a corrected word to the vocabulary).</summary>
+    Offer,
 }
 
 /// <summary>
@@ -105,6 +108,9 @@ internal sealed class OverlayForm : Form
     /// <summary>User clicked an error pill (the tray context runs its action).</summary>
     public event EventHandler? ErrorClicked;
 
+    /// <summary>The offer pill was clicked (accepting the offer).</summary>
+    public event EventHandler? OfferClicked;
+
     /// <summary>User clicked the idle mini button.</summary>
     public event EventHandler? MiniClicked;
 
@@ -188,6 +194,17 @@ internal sealed class OverlayForm : Form
         // Longer messages stay up a little longer so they can be read.
         var seconds = Math.Min(error ? 9 : 6, (error ? 5 : 2.5) + (text.Length * 0.04));
         _hideAt = DateTime.UtcNow.AddSeconds(seconds);
+        Place();
+    }
+
+    /// <summary>Shows a suggestion for about 12 seconds; clicking it raises <see cref="OfferClicked"/>.</summary>
+    public void ShowOffer(string text)
+    {
+        ArgumentNullException.ThrowIfNull(text);
+        _mode = PillMode.Offer;
+        _text = text;
+        _warning = null;
+        _hideAt = DateTime.UtcNow.AddSeconds(12);
         Place();
     }
 
@@ -319,7 +336,7 @@ internal sealed class OverlayForm : Form
 
                 break;
             default:
-                using (var b = new SolidBrush(_mode == PillMode.Error ? Amber : Blue))
+                using (var b = new SolidBrush(_mode switch { PillMode.Error => Amber, PillMode.Offer => Green, _ => Blue }))
                 {
                     g.FillEllipse(b, S(16), cy - (dot / 2f), dot, dot);
                 }
@@ -387,7 +404,7 @@ internal sealed class OverlayForm : Form
         }
 
         var hover = HitButton(e.Location);
-        Cursor = hover == Rectangle.Empty ? (_mode == PillMode.Mini ? Cursors.Hand : Cursors.Default) : Cursors.Hand;
+        Cursor = hover == Rectangle.Empty ? (_mode is PillMode.Mini or PillMode.Offer ? Cursors.Hand : Cursors.Default) : Cursors.Hand;
         if (hover != _hoverRect)
         {
             _hoverRect = hover;
@@ -456,6 +473,11 @@ internal sealed class OverlayForm : Form
         {
             GoIdle();
         }
+        else if (_mode == PillMode.Offer)
+        {
+            GoIdle();
+            OfferClicked?.Invoke(this, EventArgs.Empty);
+        }
     }
 
     protected override void Dispose(bool disposing)
@@ -488,7 +510,7 @@ internal sealed class OverlayForm : Form
     private void OnTimer(object? sender, EventArgs e)
     {
         _frame++;
-        if (_mode is PillMode.Hint or PillMode.Error && DateTime.UtcNow >= _hideAt)
+        if (_mode is PillMode.Hint or PillMode.Error or PillMode.Offer && DateTime.UtcNow >= _hideAt)
         {
             GoIdle();
             return;

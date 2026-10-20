@@ -241,15 +241,15 @@ Google resets the free daily quota at midnight Pacific time. Compute the next mi
 
 ## 6. Settings
 
-Stored as JSON with `schemaVersion` (currently 1). Exported files use the same shape without the `local` section; the schema is `shared/settings.schema.json`. Import merges the non-local sections and keeps local values (API key, microphone, start-with-Windows).
+Stored as JSON with `schemaVersion` (currently 2; version 1 files are migrated, see §10.1). Exported files use the same shape without the `local` section; the schema is `shared/settings.schema.json`. Import merges the non-local sections and keeps local values (API keys, microphone, start-with-Windows). The example shows the version 1 core; the service, clean-up and snippet fields added in version 2 are described in §10.1.
 
 ```json
 {
-  "schemaVersion": 1,
+  "schemaVersion": 2,
   "transcription": {
     "engine": "transcribe",
     "transcribeModel": "gemini-3.5-transcribe",
-    "generateModel": "gemini-3.5-flash-lite",
+    "generateModel": "gemini-3.5-flash",
     "apiBaseUrl": "https://generativelanguage.googleapis.com",
     "requestTimeoutSeconds": 60,
     "languages": "englishHindi",
@@ -263,13 +263,16 @@ Stored as JSON with `schemaVersion` (currently 1). Exported files use the same s
   "insertion": { "method": "paste", "trailingSpace": true },
   "history": { "enabled": true },
   "hotkey": "Ctrl+Alt+Space",
+  "holdKey": "rightCtrl",
   "showMiniButton": true,
   "local": {
     "apiKeyProtected": "<platform-encrypted, base64>",
+    "apiKeysProtected": { "sarvam": "<platform-encrypted, base64>" },
     "microphoneId": null,
     "startWithWindows": false,
     "firstRunCompleted": true,
-    "miniButtonPosition": null
+    "miniButtonPosition": null,
+    "learnFromCorrections": true
   }
 }
 ```
@@ -284,8 +287,9 @@ Stored as JSON with `schemaVersion` (currently 1). Exported files use the same s
 | `recording.maxSeconds` | 30–1800 | 600 |
 | `insertion.method` | `paste`, `type` | `paste` |
 | `hotkey` | `Mod+Mod+Key`, modifiers `Ctrl`, `Alt`, `Shift`, `Win`; at least one of Ctrl/Alt/Win | `Ctrl+Alt+Space` |
+| `holdKey` [Windows] | `rightCtrl`, `rightAlt`, `rightShift`, `off` — record while held (§10.1) | `rightCtrl` |
 
-Unknown fields are ignored; missing fields take defaults; out-of-range numbers are clamped. The API key is never exported, never logged and never stored in plain text ([Windows] DPAPI CurrentUser; [Android] Android Keystore).
+Unknown fields are ignored; missing fields take defaults; out-of-range numbers are clamped. API keys are never exported, never logged and never stored in plain text ([Windows] DPAPI CurrentUser; [Android] Android Keystore). The Gemini key stays in `local.apiKeyProtected`; the other services' keys are in `local.apiKeysProtected`, by key slot (`sarvam`, `openai`, `deepgram`, `elevenlabs`, and `cleanup-openai` for the clean-up chat service).
 
 ## 7. Storage [Windows paths]
 
@@ -295,6 +299,7 @@ Unknown fields are ignored; missing fields take defaults; out-of-range numbers a
 | History | `%LOCALAPPDATA%\Plainspoken\history.json` | newest first, max 20; disable/clear in Settings; clearing also happens when disabled |
 | Pending recordings | `%LOCALAPPDATA%\Plainspoken\pending\<yyyyMMdd-HHmmss-fff>.wav` + `.json` metadata | written before any network call, deleted after a transcript is obtained |
 | Logs | `%LOCALAPPDATA%\Plainspoken\logs\plainspoken-yyyyMMdd.log` | one file per day, deleted after 7 days; never contain transcript text or the key |
+| Speed statistics | `%LOCALAPPDATA%\Plainspoken\stats.json` | last 1,000 dictations' timings (§10.1); never any text |
 
 History entry: `{"id": "<guid>", "createdUtc": "…", "text": "…", "durationSeconds": 4.2}`.
 Pending metadata: `{"createdUtc":"…","durationSeconds":4.2,"lastError":"Network","attempts":1}`.
@@ -303,11 +308,12 @@ Pending metadata: `{"createdUtc":"…","durationSeconds":4.2,"lastError":"Networ
 
 A welcome dialog with three steps: (1) get a free key at https://aistudio.google.com/apikey, (2) paste it (with a Test button), (3) try the hotkey. The user must tick:
 "This app uses Google's free tier. Google may use your recordings to improve its products. Do not dictate official, confidential or classified information."
-The app is not usable until the notice is accepted.
+The app is not usable until the notice is accepted. [Windows] "Use another service…" (after the notice is accepted) skips
+the Gemini key and opens Settings, for people with a key for another service (§10.1).
 
 ## 9. Privacy
 
-No telemetry, analytics or servers of our own. The only network calls go to the configured Gemini base URL. Logs hold timings, sizes, status codes and sanitised error shapes only.
+No telemetry, analytics or servers of our own. The only network calls go to the configured speech and clean-up service addresses (the Gemini base URL by default). Each key is sent only to its own service's host. Logs hold timings, sizes, status codes and sanitised error shapes only.
 
 ## 10. Android [Android]
 
@@ -325,9 +331,11 @@ Windows core and is tested against the same `shared/test-fixtures/` (API shapes,
 - **First run (§8):** the home screen is a checklist — get a key, paste and test it, accept the same notice, allow the microphone, turn on the keyboard, choose it — followed by a box to try dictation.
 - **Messages (§4.3):** same meanings, worded for the phone ("tap Retry", "Open app", "Allow").
 
-### 10.1 Any speech service, clean-up and dictation extras [Android 0.4.0]
+### 10.1 Any speech service, clean-up and dictation extras [Android 0.4.0, Windows 0.5.0]
 
-The Windows app still uses Gemini only (§4); it gets the following in 0.5.0.
+Both apps behave as below; where they differ, the bullet says so. The Windows core is a C# port of the same Kotlin code
+and is tested against the same fixtures (including `cleanup-cases.json`, and a test that keeps the clean-up instructions
+identical on both).
 
 - **Services.** A dictation can be transcribed by: `gemini` (§4.1, the transcribe model), `gemini-general` (§4.2, a general
   model listening to the audio, default `gemini-3.5-flash`), `sarvam` (Saaras, POST `/speech-to-text`, header
@@ -348,8 +356,9 @@ The Windows app still uses Gemini only (§4); it gets the following in 0.5.0.
   with "out of credits" or a daily limit — is skipped for 15 minutes while another is available; saving its key clears
   that. When all fail, the main service's error is shown, naming the service (Gemini errors still name Google).
 - **Compression.** When `compressAudio` is on and a service in the order accepts it, the recording is encoded once to
-  AAC-LC 32 kbit/s in MP4 (Android's encoder) and sent to those services; Gemini always gets the WAV. On any encoder
-  problem the WAV is used.
+  AAC-LC in MP4 and sent to those services; Gemini always gets the WAV. [Android] 32 kbit/s with Android's encoder.
+  [Windows] Media Foundation's AAC encoder, which takes only 44.1/48 kHz and offers 96 kbit/s at the lowest, so the
+  recording is resampled to 48 kHz first (about a third of the WAV's size). On any encoder problem the WAV is used.
 - **Clean-up (Smart mode).** Text from services that don't tidy it themselves (all but the Gemini services, unless
   `cleanup.alsoGemini`) is sent with the vocabulary to `cleanup.provider`: Gemini (`generateContent`, text only,
   temperature 0, `thinkingLevel: minimal` on Gemini 3 models, default `gemini-3.5-flash`) or any OpenAI-style
@@ -367,16 +376,24 @@ The Windows app still uses Gemini only (§4); it gets the following in 0.5.0.
   streams in a row, streaming for that service pauses 15 minutes.
 - **Snippets.** `snippets` maps spoken triggers to text. A dictation that is only a trigger (ignoring case and
   punctuation) becomes its text; a trigger inside a sentence is replaced. The clean-up is told to keep triggers word for word.
-- **Hold-to-talk.** On the keyboard, a press that starts dictation and lasts ≥ 0.5 s finishes it on release; a shorter
-  tap keeps listening until the ✓ is tapped.
-- **Learning vocabulary.** After inserting, the keyboard remembers the text (not for incognito or password boxes). When
-  it is shown again in the same app within 10 minutes and the text around the cursor has changed, words the user typed
-  in place of inserted words — or whose capitals changed, not at a sentence start — are offered ("Add “Sameer” to your
-  vocabulary?"); neighbouring capitalised words form one name.
+- **Hold-to-talk.** [Android] On the keyboard, a press that starts dictation and lasts ≥ 0.5 s finishes it on release; a
+  shorter tap keeps listening until the ✓ is tapped. [Windows] `holdKey` (Right Ctrl by default) held on its own for
+  0.3 s starts dictation and releasing it stops and transcribes. A quick tap does nothing, any other key pressed first
+  (Ctrl+C…) makes it an ordinary shortcut, and keys sent by programs (including Plainspoken's own Ctrl+V) are ignored.
+  A low-level keyboard hook only watches; every key still reaches its app. The hotkey still toggles; a dictation started
+  another way is not stopped by the hold key.
+- **Learning vocabulary.** After inserting, the app remembers the text in memory (not for incognito or password boxes).
+  [Android] When the keyboard is shown again in the same app within 10 minutes, the text around the cursor is compared.
+  [Windows] At the start of the next dictation in the same window within 10 minutes, the focused text box is read once
+  through UI Automation (never password boxes or Plainspoken's own windows; long documents are searched around the
+  dictated words) and compared; any offer appears in the pill after that dictation. `local.learnFromCorrections` turns
+  this off. Words the user typed in place of inserted words — or whose capitals changed, not at a sentence start — are
+  offered ("Add “Sameer” to your vocabulary?"); neighbouring capitalised words form one name. The text read is never
+  stored, logged or sent.
 - **Stats.** For each dictation (never any text): service, audio length, time from stop to raw text, clean-up time,
-  success, streamed, backup used, hedged. The last 1,000 are kept in `stats.json`; the Speed and cost screen shows
-  medians per service and minutes × price for this month.
+  success, streamed, backup used, hedged. The last 1,000 are kept in `stats.json` (same field names on both); the Speed
+  and cost screen (Windows: tray menu → Speed and cost…) shows medians per service and minutes × price for this month.
 - **Settings file.** `schemaVersion` 2. A version 1 file becomes a service order: `engine` decides the main Gemini
   service, `useBackupEngineWhenLimited` adds the other; a general model still at the old default
   `gemini-3.5-flash-lite` moves to `gemini-3.5-flash`. `engine` and `useBackupEngineWhenLimited` are kept in step with
-  the order, so the Windows app reads an Android file sensibly; it ignores the new fields.
+  the order, so older versions read a new file sensibly. Android keeps the Windows-only `holdKey` for round trips.

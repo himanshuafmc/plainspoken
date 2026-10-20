@@ -26,21 +26,23 @@ cd android
 ./gradlew :app:assembleRelease :app:lintRelease
 ```
 
-The Android clean-up step is tuned with `shared/test-fixtures/cleanup-cases.json`; `./gradlew -p core cleanupEval` (in
+The clean-up step is tuned with `shared/test-fixtures/cleanup-cases.json`; `./gradlew -p core cleanupEval` (in
 `android/`, with `GEMINI_API_KEY` set) scores it against the real API. Add a case when you change the clean-up
-instructions.
+instructions, and change them in both apps: a Windows test checks that the two copies match.
 
-The optional live smoke test calls the real Gemini API with your own key (it never runs in CI):
+The optional live smoke test calls the real services with your own keys (it never runs in CI). Keys come only from
+environment variables — `GEMINI_API_KEY`, `SARVAM_API_KEY`, `OPENAI_API_KEY`, `DEEPGRAM_API_KEY`, `ELEVENLABS_API_KEY`:
 
 ```
 windows/tools/Plainspoken.Smoke/make-clips.sh clips          # synthetic clips, needs espeak-ng
-GEMINI_API_KEY=... dotnet run --project windows/tools/Plainspoken.Smoke -- --engine both clips/*.wav
+GEMINI_API_KEY=... dotnet run --project windows/tools/Plainspoken.Smoke -- --service both clips/*.wav
+SARVAM_API_KEY=... GEMINI_API_KEY=... dotnet run --project windows/tools/Plainspoken.Smoke -- --service sarvam --cleanup clips/*.wav
 ```
 
 ## How the code is organised
 
-- `windows/src/Plainspoken.Core` — everything that isn't Windows-specific: the Gemini engines, audio conversion, settings, storage, error handling and the dictation state machine.
-- `windows/src/Plainspoken.App` — the WinForms tray app: hotkey, microphone, overlay, text insertion and the settings windows.
+- `windows/src/Plainspoken.Core` — everything that isn't Windows-specific: the speech services and the router, clean-up, streaming, audio conversion, settings, storage, error handling and the dictation state machine.
+- `windows/src/Plainspoken.App` — the WinForms tray app: hotkey and hold-to-talk, microphone, overlay, text insertion, AAC compression, reading text boxes for learning, and the settings windows.
 - `android/core` — the same logic in Kotlin (no Android APIs); `android/app` — the voice keyboard and the app screens. See [`android/README.md`](android/README.md).
 - `shared/` — the settings schema, the starter vocabulary and `test-fixtures/`, which **both** test suites read. When behaviour changes, change both apps and add the case to the shared fixtures (for example `text-cases.json`).
 - `docs/SPEC.md` — how the app must behave on every platform. Update it when behaviour changes.

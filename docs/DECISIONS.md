@@ -72,6 +72,14 @@ Windows 10/11 x64 · C# / .NET 10 · WinForms · NAudio for capture · P/Invoke 
 - **Stats hold timings only**, never text, and stay on the phone; prices are entered by the user because they differ by plan and change often.
 - **Windows stays on Gemini for now.** The service framework is ported to the Windows core in 0.5.0; until then Windows ignores the new settings fields, and version-1 readers are unaffected.
 
+## Any speech service on Windows (0.5.0)
+- **A straight port of the Android core.** The router, engines, clean-up, streaming, learner and stats are C# translations of the Kotlin code, tested with the same cases; a test compares the clean-up instructions with the Android file so the two can't drift apart.
+- **Multipart bodies are written like the services' SDKs** (quoted field names, no `filename*`), because .NET's defaults (unquoted names) are valid but not what every server's form parser expects.
+- **Hold-to-talk on Right Ctrl.** Wispr-style holding needs a key that is free to hold; Right Ctrl is rarely used on its own and exists on every keyboard. It is watched with a low-level keyboard hook (`WH_KEYBOARD_LL`) that never blocks or changes keys. Holding starts after 0.3 s so a tap, or Right Ctrl as part of a shortcut, keeps working; keys sent by programs are ignored so Plainspoken's own Ctrl+V can't trigger it. Right Alt, Right Shift or off are the alternatives. Ctrl+Alt+Space still toggles.
+- **Learning corrections by reading the text box.** Windows has no keyboard-level view of the text, so at the next dictation in the same window (within 10 minutes) the focused text box is read once through UI Automation and compared with what was inserted, as on Android. It runs only on the user's computer, skips password boxes and can be turned off. UI Automation is reached through a few hand-written COM declarations instead of WPF's managed client, which would have made the download 20 MB (45 %) bigger.
+- **AAC through Media Foundation at 96 kbit/s.** It is built into Windows (no codec bundled). The Windows AAC encoder accepts only 44.1/48 kHz and offers 96 kbit/s at the lowest, so the 16 kHz recording is resampled to 48 kHz first; the result is still about a third of the WAV. Windows editions without Media Foundation (N editions without the Media Feature Pack) just send WAV.
+- **Keys per slot with DPAPI**, as the Gemini key always was; the cleanup chat service has its own slot. Saving a new key clears that service's 15-minute pause.
+
 ## CI and releases
 - Push runs on every branch and `v*` tags; same-repo `pull_request` runs are skipped because the push run on the same commit already reports to the PR.
 - One workflow (`build.yml`) runs the Windows core tests, the Windows build and the Android build (core tests, APK, lint) on every push.

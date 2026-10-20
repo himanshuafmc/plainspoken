@@ -1,10 +1,14 @@
 using Plainspoken.App.Platform;
 using Plainspoken.Core;
+using Plainspoken.Core.Settings;
 using Plainspoken.Core.Transcription;
 
 namespace Plainspoken.App.UI;
 
-/// <summary>Welcome dialog: get a free key → paste it → try the hotkey, plus the free-tier privacy notice.</summary>
+/// <summary>
+/// Welcome dialog: get a free Gemini key → paste it → try the hotkey, plus the free-tier privacy notice.
+/// "Use another service" skips the key and opens Settings, for people with a Sarvam, OpenAI, Deepgram or ElevenLabs key.
+/// </summary>
 internal sealed class FirstRunForm : Form
 {
     public const string PrivacyNotice =
@@ -38,13 +42,14 @@ internal sealed class FirstRunForm : Form
         MinimumSize = new Size(440, 360);
         MaximizeBox = false;
 
-        _key.Text = host.ApiKey ?? string.Empty;
+        _key.Text = host.KeyFor(SpeechServices.GeminiKey) ?? string.Empty;
         _show.CheckedChanged += (_, _) => _key.UseSystemPasswordChar = !_show.Checked;
         _key.TextChanged += (_, _) => UpdateFinish();
         _accept.CheckedChanged += (_, _) => UpdateFinish();
         _test = Ui.Button("Test key", async (_, _) => await TestAsync().ConfigureAwait(true));
         _finish = Ui.Button("Finish", (_, _) => Finish());
         var later = Ui.Button("Later", (_, _) => Close());
+        var other = Ui.Button("Use another service…", (_, _) => UseAnotherService());
 
         var hotkey = HotkeyKeys.Display(host.CurrentSettings.Hotkey);
         var body = new TableLayoutPanel
@@ -70,7 +75,9 @@ internal sealed class FirstRunForm : Form
         Add(_status);
         Add(Step("3. Try it"));
         Add(Para($"Click where you want to type (for example in Notepad), press {hotkey}, speak, then press {hotkey} again. " +
-                 $"{AppInfo.Name} lives in the system tray, near the clock."));
+                 $"Or hold Right Ctrl while you speak and let go. {AppInfo.Name} lives in the system tray, near the clock."));
+        Add(Para("Have a key for Sarvam, OpenAI (or Groq), Deepgram or ElevenLabs instead? Tick \"I understand\" below and click " +
+                 "\"Use another service…\"."));
 
         var notice = new Panel
         {
@@ -101,6 +108,7 @@ internal sealed class FirstRunForm : Form
         var buttons = new FlowLayoutPanel { Dock = DockStyle.Bottom, FlowDirection = FlowDirection.RightToLeft, AutoSize = true, Padding = new Padding(8) };
         buttons.Controls.Add(later);
         buttons.Controls.Add(_finish);
+        buttons.Controls.Add(other);
         AcceptButton = _finish;
 
         Controls.Add(scroll);
@@ -148,9 +156,9 @@ internal sealed class FirstRunForm : Form
         _status.Text = "Checking…";
         try
         {
-            var s = _host.CurrentSettings;
-            var result = await KeyTester.TestAsync(_host.Http, s.Transcription.ApiBaseUrl, s.Transcription.ModelFor(s.Transcription.Engine),
-                _key.Text.Trim(), _host.Log, CancellationToken.None).ConfigureAwait(true);
+            var service = _host.CurrentSettings.Transcription.OrderedServices().FirstOrDefault(s => s.IsGemini(), SpeechService.Gemini);
+            var result = await KeyTester.TestAsync(_host.Http, service, _host.CurrentSettings, _key.Text.Trim(), _host.Log, CancellationToken.None)
+                .ConfigureAwait(true);
             if (IsDisposed)
             {
                 return;
@@ -172,7 +180,8 @@ internal sealed class FirstRunForm : Form
     {
         var settings = _host.CurrentSettings;
         settings.Local.FirstRunCompleted = true;
-        if (!_host.TryApply(settings, _key.Text.Trim(), out var error))
+        var keys = new Dictionary<string, string> { [SpeechServices.GeminiKey] = _key.Text.Trim() };
+        if (!_host.TryApply(settings, keys, out var error))
         {
             MessageBox.Show(this, error ?? "Couldn't save.", Text, MessageBoxButtons.OK, MessageBoxIcon.Warning);
             return;
@@ -180,5 +189,27 @@ internal sealed class FirstRunForm : Form
 
         _host.Log.Info("first run completed");
         Close();
+    }
+
+    private void UseAnotherService()
+    {
+        if (!_accept.Checked)
+        {
+            MessageBox.Show(this, "Please read the note at the bottom and tick \"I understand\" first.", Text, MessageBoxButtons.OK,
+                MessageBoxIcon.Information);
+            return;
+        }
+
+        var settings = _host.CurrentSettings;
+        settings.Local.FirstRunCompleted = true;
+        if (!_host.TryApply(settings, null, out var error))
+        {
+            MessageBox.Show(this, error ?? "Couldn't save.", Text, MessageBoxButtons.OK, MessageBoxIcon.Warning);
+            return;
+        }
+
+        _host.Log.Info("first run completed (another service)");
+        Close();
+        _host.ShowSettingsWindow();
     }
 }

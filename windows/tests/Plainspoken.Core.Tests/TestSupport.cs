@@ -59,8 +59,14 @@ internal sealed class FakeHttpHandler : HttpMessageHandler
         }
 
         var captured = new CapturedRequest(request.Method, request.RequestUri!, headers, body, bytes, contentType);
-        Requests.Add(captured);
-        return _respond(captured, Requests.Count - 1);
+        int index;
+        lock (Requests)
+        {
+            Requests.Add(captured);
+            index = Requests.Count - 1;
+        }
+
+        return _respond(captured, index);
     }
 }
 
@@ -115,6 +121,18 @@ internal sealed class GeminiFake
 
         return FakeHttpHandler.Json(HttpStatusCode.NotFound, "{\"error\":{\"code\":404,\"message\":\"no route in fake\"}}");
     }
+}
+
+internal static class TestAudio
+{
+    /// <summary>Synthetic "speech": steady noise loud enough to pass the clip check. Never a real recording.</summary>
+    public static short[] Speech(double seconds, int seed = 3)
+    {
+        var rnd = new Random(seed);
+        return Enumerable.Range(0, (int)(16000 * seconds)).Select(_ => (short)rnd.Next(-3000, 3000)).ToArray();
+    }
+
+    public static string Text(this CapturedRequest r) => r.Body ?? (r.Bytes is null ? string.Empty : Encoding.UTF8.GetString(r.Bytes));
 }
 
 internal sealed class TempDir : IDisposable

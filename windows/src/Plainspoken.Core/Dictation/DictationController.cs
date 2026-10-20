@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using Plainspoken.Core.Audio;
 using Plainspoken.Core.Logging;
 using Plainspoken.Core.Settings;
@@ -63,6 +64,9 @@ public sealed class DictationController
     }
 
     public DictationState State { get; private set; } = DictationState.Idle;
+
+    /// <summary>Raised with the text after it was typed at the cursor (used to learn the user's corrections).</summary>
+    public event EventHandler<string>? Inserted;
 
     public TimeSpan Elapsed => _recorder.Elapsed;
 
@@ -312,14 +316,21 @@ public sealed class DictationController
         string text;
         try
         {
-            var raw = live is null ? null : await TryLiveAsync(live, cts.Token);
-            if (raw is null)
+            var request = TranscriptionRequest.From(wav, duration, settings);
+            TranscriptionOutcome? outcome = null;
+            if (live is not null)
             {
-                var outcome = await _transcriber.TranscribeAsync(TranscriptionRequest.From(wav, duration, settings), settings, progress, cts.Token);
-                raw = outcome.Text;
+                var sw = Stopwatch.StartNew();
+                var service = live.Service;
+                if (await TryLiveAsync(live, cts.Token) is { } raw)
+                {
+                    // Streamed text still goes through the clean-up step and snippets.
+                    outcome = await _transcriber.FinishAsync(raw, service, request, settings, progress, sw.ElapsedMilliseconds, cts.Token);
+                }
             }
 
-            text = TextPostProcessor.Clean(raw);
+            outcome ??= await _transcriber.TranscribeAsync(request, settings, progress, cts.Token);
+            text = TextPostProcessor.Clean(outcome.Text);
         }
         catch (OperationCanceledException) when (cts.IsCancellationRequested)
         {
@@ -397,6 +408,11 @@ public sealed class DictationController
         {
             case InsertOutcome.Inserted:
                 _view.HideOverlay();
+                if (insertAtCursor)
+                {
+                    Inserted?.Invoke(this, text);
+                }
+
                 break;
             case InsertOutcome.CopiedToClipboard:
                 _view.ShowHint(UserMessages.Copied);
@@ -413,7 +429,7 @@ public sealed class DictationController
     private void StartLive(PlainspokenSettings settings)
     {
         DropLive();
-        if (!settings.Transcription.LiveStreaming || _liveTranscriber is null || !_liveTranscriber.CanStart(settings))
+        if (_liveTranscriber is null || !_liveTranscriber.CanStart(settings))
         {
             return;
         }
@@ -426,7 +442,7 @@ public sealed class DictationController
         }
         catch (Exception ex)
         {
-            _log.Warn($"live: could not start ({ex.GetType().Name}); using the normal engine");
+            _log.Warn($"live: could not start ({ex.GetType().Name}); using the normal request");
             _recorder.SampleSink = null;
         }
     }
@@ -449,7 +465,7 @@ public sealed class DictationController
                 return text;
             }
 
-            _log.Warn("live: no text returned; using the normal engine");
+            _log.Warn("live: no text returned; using the normal request");
         }
         catch (OperationCanceledException) when (ct.IsCancellationRequested)
         {
@@ -458,7 +474,7 @@ public sealed class DictationController
         catch (Exception ex)
         {
             var kind = ex is TranscriptionException te ? te.Kind.ToString() : ex.GetType().Name;
-            _log.Warn($"live: failed ({kind}: {Logging.Redactor.Clean(ex.Message, 200)}); using the normal engine");
+            _log.Warn($"live: failed ({kind}: {Logging.Redactor.Clean(ex.Message, 200)}); using the normal request");
         }
         finally
         {

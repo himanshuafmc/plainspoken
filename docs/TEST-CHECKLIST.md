@@ -88,6 +88,29 @@ For each: [ ] text appears at the cursor, [ ] "um" removed and punctuation added
 - [ ] Export settings → open the file in Notepad → **no API key inside**. Import it back → vocabulary restored.
 - [ ] Microphone dropdown lists your microphones; choosing one works.
 
+## F2. Speech services, clean-up and extras (Windows 0.5.0)
+
+- [ ] Upgrade from 0.4.0: unzip over the old folder and start → the Gemini key, vocabulary and history are still there; Settings → General shows Gemini as the speech service and the general Gemini model as the first backup.
+- [ ] Settings → General → First backup → Sarvam → **Set up…** → paste a wrong key → **Test key** says it was not accepted; the right key → "Key works". OK → Save. The line under the services says every chosen service has a key.
+- [ ] Repeat for each service you use (OpenAI-compatible, Deepgram, ElevenLabs). For Groq, set the address to `https://api.groq.com/openai/v1` and the model to `whisper-large-v3-turbo`.
+- [ ] Make each service the main one in turn and dictate English, Hindi and Hinglish (5–10 s, with an "um" and a self-correction like "at 5, no, at 6") into Notepad: fillers gone, only the correction kept, punctuation right, Hinglish not translated. Time from stop to text: Sarvam ____ s, OpenAI ____ s, Deepgram ____ s, ElevenLabs ____ s.
+- [ ] Sarvam and Deepgram with **Stream while you speak** on and off (Set up…): compare the time to text.
+- [ ] Hindi words in: Roman letters vs Devanagari → the text follows it (with clean-up on).
+- [ ] Clean-up tab → **Off**: raw text from Sarvam/Deepgram with only "um"/"uh" removed. Back to Gemini Flash.
+- [ ] Clean-up → OpenAI-compatible with a chat key → Test key → dictate with Sarvam → tidy text. Back to Gemini Flash.
+- [ ] Give the main service a wrong key and keep a working backup: dictation still works (backup used); after two dictations the main one is skipped (the log says "paused"). Fix the key → the main service is used again at once.
+- [ ] Unplug the network cable / turn Wi-Fi off right after you stop (or pick a slow service as main): with "Speed" at 4 seconds the pill says "Still working — also asking …" and the first answer is used.
+- [ ] Long dictation with Sarvam as the main service (over 1 minute) → the whole text arrives.
+- [ ] **Hold to talk:** in Notepad, hold Right Ctrl, speak, let go → text inserted. A quick tap of Right Ctrl does nothing. Right Ctrl+C / Right Ctrl+V still copy and paste and never start a recording. Start with Ctrl+Alt+Space, then tap and hold Right Ctrl → the recording isn't stopped by it. Settings → Hold to talk → Right Alt / Off work as described.
+- [ ] Hold to talk in Word, a browser text box and WhatsApp desktop: the paste after release works (Ctrl isn't stuck).
+- [ ] Snippets tab: add "insert my address" → saying just that types the address; inside a sentence only that part is replaced.
+- [ ] **Learning:** dictate "Please call Samir tomorrow" into Notepad, change "Samir" to "Sameer" by hand, then dictate again in the same window → after that dictation the green pill offers "Add “Sameer” to your vocabulary?" → click → it's in Settings → Vocabulary. In another app, nothing is offered. With "Offer to add words I correct" off, nothing is offered.
+- [ ] Learning in Word, a browser (Gmail) and WhatsApp desktop: note which apps offer corrections: ________.
+- [ ] Tray → **Speed and cost…**: each service shows dictations, wait times and, after entering a price under Set up…, this month's cost. Clear empties it.
+- [ ] The log shows "compress: … → … bytes" for Sarvam/OpenAI/Deepgram/ElevenLabs (smaller uploads) and no errors about the encoder.
+- [ ] Export settings: the file has the service order, snippets and clean-up settings, **and no keys**. Import it on the phone → the same services and snippets.
+- [ ] First run on a fresh Windows user: tick the notice → **Use another service…** → Settings opens; set up Sarvam as the main service → dictation works without a Gemini key.
+
 ## G. Start with Windows
 
 - [ ] Settings → Options → tick "Start Plainspoken when Windows starts" → Save → restart Windows → Plainspoken's tray icon appears after login and the hotkey works.

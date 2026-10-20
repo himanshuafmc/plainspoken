@@ -21,7 +21,9 @@ For example:
 - dictated text ending up anywhere other than the target app, the clipboard (restored afterwards), local history and Google's API;
 - audio or text being sent anywhere other than the configured speech and clean-up service addresses;
 - an API key being sent to a host other than its own service;
-- a way to make Plainspoken type or paste text the user didn't dictate.
+- a way to make Plainspoken type or paste text the user didn't dictate;
+- the Windows app reading a text box other than the one it typed into (at the next dictation there), reading a password box, or storing, logging or sending what it read;
+- the Windows hold-to-talk keyboard hook blocking, changing or recording keys.
 
 Out of scope: Google's own services and data policies, other apps reading the clipboard while text is being pasted, the unsigned-exe SmartScreen warning, and Android's standard warning when any keyboard is turned on (both known limitations).
 
