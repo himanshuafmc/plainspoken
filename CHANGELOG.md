@@ -2,7 +2,7 @@
 
 All notable changes to Plainspoken. Versions follow [Semantic Versioning](https://semver.org/).
 
-## [0.5.0] - 2026-10-20
+## [0.5.0] - 2026-10-21
 
 The **Windows** app catches up with Android — any speech service, cleaner text, hold-to-talk, snippets and more — and **Android** gets a floating mic that works with your usual keyboard.
 
