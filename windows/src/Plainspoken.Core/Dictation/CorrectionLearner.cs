@@ -16,6 +16,9 @@ public static partial class CorrectionLearner
         "the", "and", "for", "but", "with", "that", "this", "have", "will", "your", "from", "they", "what", "when", "then",
         "there", "their", "about", "would", "could", "should", "which", "were", "been", "into", "also", "just", "very",
         "hai", "hain", "nahi", "kya", "aur", "main", "mein", "tum", "aap", "yeh", "woh", "kar", "karo", "raha", "rahi",
+        "accha", "achha", "acha", "theek", "thik", "abhi", "bahut", "bohot", "lekin", "kyunki", "kyun", "wala", "wali",
+        "wale", "matlab", "haan", "nahin", "kaise", "kaisa", "kuch", "phir", "agar", "bhi", "toh", "mera", "meri", "apna",
+        "apni", "karna", "karte", "karke", "hoga", "hogi", "kahan", "yahan", "wahan", "baat", "bilkul", "zaroor", "jaldi",
     };
 
     public static IReadOnlyList<string> Candidates(string inserted, string current, IEnumerable<string> vocabulary)

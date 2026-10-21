@@ -4,7 +4,10 @@ import android.Manifest
 import android.annotation.SuppressLint
 import android.content.Context
 import android.content.pm.PackageManager
+import android.media.AudioAttributes
+import android.media.AudioFocusRequest
 import android.media.AudioFormat
+import android.media.AudioManager
 import android.media.AudioRecord
 import android.media.MediaRecorder
 import android.os.Build
@@ -22,6 +25,7 @@ import kotlin.math.log10
 /**
  * Captures 16 kHz mono PCM16 straight from the microphone (no resampling needed on Android) on its own
  * thread, keeps the whole recording in memory and hands each 100 ms block to [sampleSink] for live streaming.
+ * While it records it holds the audio focus, so music and videos pause instead of being dictated.
  */
 class AndroidRecorder(private val context: Context, private val log: Log) : AudioRecorder {
     @Volatile
@@ -52,6 +56,13 @@ class AndroidRecorder(private val context: Context, private val log: Log) : Audi
 
     @Volatile
     private var heardSomething = false
+
+    private val audio: AudioManager? = context.getSystemService(AudioManager::class.java)
+    private val focus = AudioFocusRequest.Builder(AudioManager.AUDIOFOCUS_GAIN_TRANSIENT_EXCLUSIVE)
+        .setAudioAttributes(
+            AudioAttributes.Builder().setUsage(AudioAttributes.USAGE_ASSISTANT).setContentType(AudioAttributes.CONTENT_TYPE_SPEECH).build(),
+        )
+        .build()
 
     override val isRecording: Boolean get() = running
 
@@ -87,15 +98,19 @@ class AndroidRecorder(private val context: Context, private val log: Log) : Audi
         }
 
         val rec = r ?: throw RecorderException(RecorderErrorKind.NO_DEVICE, "AudioRecord not initialised")
+        // Recording goes ahead even if focus is refused (during a call, for example).
+        if (audio?.requestAudioFocus(focus) != AudioManager.AUDIOFOCUS_REQUEST_GRANTED) log.info("mic: audio focus not granted")
         try {
             rec.startRecording()
         } catch (e: IllegalStateException) {
             rec.release()
+            audio?.abandonAudioFocusRequest(focus)
             throw RecorderException(RecorderErrorKind.FAILED, "startRecording failed", e)
         }
 
         if (rec.recordingState != AudioRecord.RECORDSTATE_RECORDING) {
             rec.release()
+            audio?.abandonAudioFocusRequest(focus)
             throw RecorderException(RecorderErrorKind.DEVICE_BUSY, "microphone in use")
         }
 
@@ -140,6 +155,7 @@ class AndroidRecorder(private val context: Context, private val log: Log) : Audi
             rec.release()
         }
 
+        audio?.abandonAudioFocusRequest(focus)
         thread = null
         level = 0f
         if (silenced) log.warn("mic: Android delivered only silence (the microphone was withheld from Plainspoken)")

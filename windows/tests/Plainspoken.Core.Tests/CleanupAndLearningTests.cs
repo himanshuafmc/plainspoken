@@ -158,6 +158,8 @@ public class CorrectionLearnerTests
         Assert.Empty(CorrectionLearner.Candidates("send it on whatsapp please", "send it on WhatsApp please", Vocab));
         Assert.Empty(CorrectionLearner.Candidates("we will go there", "We will go there", Vocab)); // sentence start
         Assert.Empty(CorrectionLearner.Candidates("it is a big deal", "it is the big deal", Vocab)); // common word
+        Assert.Empty(CorrectionLearner.Candidates("haan main aa raha hoon", "accha main aa raha hoon", Vocab)); // Hinglish words
+        Assert.Empty(CorrectionLearner.Candidates("main kal aa raha hoon", "main abhi aa raha hoon", Vocab));
     }
 
     [Fact]

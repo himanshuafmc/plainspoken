@@ -2,6 +2,7 @@ package app.plainspoken.dot
 
 import android.accessibilityservice.AccessibilityService
 import android.annotation.SuppressLint
+import android.annotation.TargetApi
 import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.ComponentName
@@ -57,7 +58,8 @@ import kotlin.math.abs
 /**
  * The floating mic: a small dot that appears next to whatever keyboard the user has open, in any app. Tap it to start
  * and tap again to finish, or hold it while speaking and let go; drag it to move it. The text goes into the text box
- * through accessibility actions (see [FieldWriter]), so no keyboard switching is needed.
+ * the way a keyboard types it on Android 13+, or through accessibility actions (see [FieldWriter]), so no keyboard
+ * switching is needed.
  *
  * It is an accessibility service because only those can see which text box has focus and type into another app's
  * text box. It looks only at the focused text box (never password boxes), and the dot itself is an accessibility
@@ -564,7 +566,7 @@ class DictationDot : AccessibilityService(), DictationView, TextInserter {
         target = null
         if (box == null) return if (copy(text)) InsertOutcome.COPIED else InsertOutcome.FAILED
         val result = try {
-            FieldWriter.insert(box, text, getSystemService(ClipboardManager::class.java))
+            FieldWriter.insert(box, text, getSystemService(ClipboardManager::class.java), keyboardTyping(box))
         } catch (e: Exception) {
             services.log.warn("floating mic: insert failed (${e.javaClass.simpleName})")
             FieldWriter.Result.FAILED
@@ -576,6 +578,22 @@ class DictationDot : AccessibilityService(), DictationView, TextInserter {
         lastInsertedPackage = box.packageName?.toString()
         lastInsertedAt = System.currentTimeMillis()
         return InsertOutcome.INSERTED
+    }
+
+    /**
+     * On Android 13+, types into [box] the way a keyboard does, through the input connection Android gives this service
+     * (flagInputMethodEditor), when that connection is for this box: the box still has focus, in the same app.
+     */
+    private fun keyboardTyping(box: AccessibilityNodeInfo): ((String) -> Unit)? =
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) inputConnectionTyping(box) else null
+
+    @TargetApi(Build.VERSION_CODES.TIRAMISU)
+    private fun inputConnectionTyping(box: AccessibilityNodeInfo): ((String) -> Unit)? {
+        val method = inputMethod ?: return null
+        val connection = method.currentInputConnection ?: return null
+        val editor = method.currentInputEditorInfo ?: return null
+        if (!method.currentInputStarted || !box.isFocused || editor.packageName != box.packageName?.toString()) return null
+        return { piece -> connection.commitText(piece, 1, null) }
     }
 
     override suspend fun copy(text: String): Boolean = try {

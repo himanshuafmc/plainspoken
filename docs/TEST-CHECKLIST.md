@@ -108,6 +108,7 @@ For each: [ ] text appears at the cursor, [ ] "um" removed and punctuation added
 - [ ] Learning in Word, a browser (Gmail) and WhatsApp desktop: note which apps offer corrections: ________.
 - [ ] Tray → **Speed and cost…**: each service shows dictations, wait times and, after entering a price under Set up…, this month's cost. Clear empties it.
 - [ ] The log shows "compress: … → … bytes" for Sarvam/OpenAI/Deepgram/ElevenLabs (smaller uploads) and no errors about the encoder.
+- [ ] With streaming off, wait 3 s before speaking and 3 s after → the log says "silence trimmed: …s sent", and the first and last words are all there.
 - [ ] Export settings: the file has the service order, snippets and clean-up settings, **and no keys**. Import it on the phone → the same services and snippets.
 - [ ] First run on a fresh Windows user: tick the notice → **Use another service…** → Settings opens; set up Sarvam as the main service → dictation works without a Gemini key.
 
@@ -217,5 +218,8 @@ For each: [ ] tap mic → it turns into a green ✓ with a moving halo and "List
 - [ ] Airplane mode → dictate → the label says no internet with "Tap to retry" → turn airplane mode off → tap the label → the text goes into the box.
 - [ ] Switch to the Plainspoken keyboard → the floating mic hides (the keyboard has its own mic). Switch back to Gboard → it returns.
 - [ ] Settings → Floating mic → "Show the floating mic" off → it never appears; on → it's back.
+- [ ] **Android 13+:** copy a word, dictate into WhatsApp with the floating mic, then paste somewhere → you get the copied word, not the dictation; the log says "floating mic: text typed". In a WhatsApp group, write *bold* text and an @mention, put the cursor after them and dictate → both stay as they were.
+- [ ] Play music or a video, then dictate with the floating mic and with the keyboard → it pauses while you speak and carries on afterwards.
+- [ ] With streaming off, wait 3 s before speaking and 3 s after → the log says "silence trimmed: …s sent", and the first and last words are all there.
 - [ ] If the label ever says Android didn't let the floating mic use the microphone: note the phone model and Android version, export the log and report it.
 - [ ] Install the standard APK from the phone over the floating-mic edition → it installs, the floating mic is gone, settings are kept.

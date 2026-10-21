@@ -30,6 +30,7 @@ import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
 import kotlin.test.assertFalse
 import kotlin.test.assertNull
+import kotlin.test.assertSame
 import kotlin.test.assertTrue
 
 class SharedTextCaseTests {
@@ -233,6 +234,18 @@ class AudioAndTimeTests {
         assertEquals(ClipVerdict.TOO_SHORT, ClipAnalyzer.analyze(speech(0.3)))
         assertEquals(ClipVerdict.SILENT, ClipAnalyzer.analyze(ShortArray(16000)))
         assertEquals(ClipVerdict.OK, ClipAnalyzer.analyze(speech(1.0)))
+    }
+
+    @Test
+    fun `silence before and after speech is trimmed, keeping a margin and the pauses`() {
+        val trimmed = ClipAnalyzer.trimSilence(ShortArray(16000 * 2) + speech(1.0) + ShortArray(16000 * 3))
+        assertEquals((0.2 + 1.0 + 0.3) * 16000, trimmed.size.toDouble(), 0.04 * 16000) // within a frame or so
+        val paused = speech(1.0) + ShortArray(16000 * 2) + speech(1.0)
+        assertSame(paused, ClipAnalyzer.trimSilence(paused)) // nothing to trim at the edges
+        val silent = ShortArray(16000 * 2)
+        assertSame(silent, ClipAnalyzer.trimSilence(silent))
+        val blip = ShortArray(16000 * 2) + speech(0.03) + ShortArray(16000 * 2)
+        assertSame(blip, ClipAnalyzer.trimSilence(blip)) // what's left would be under 0.6 s
     }
 
     @Test

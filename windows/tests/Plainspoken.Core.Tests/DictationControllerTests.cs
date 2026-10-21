@@ -96,6 +96,18 @@ public sealed class DictationControllerTests : IDisposable
     }
 
     [Fact]
+    public async Task Silence_around_the_speech_is_left_out_of_the_normal_request()
+    {
+        var c = Create();
+        _recorder.Audio = [.. new short[16000 * 2], .. Speech(1), .. new short[16000 * 3]];
+        await c.ToggleAsync();
+        await c.ToggleAsync();
+
+        Assert.InRange(_transcriber.LastRequest!.DurationSeconds, 1.4, 1.6);
+        Assert.Single(_inserter.Inserted);
+    }
+
+    [Fact]
     public async Task Paused_live_streaming_goes_straight_to_the_normal_engine()
     {
         _settings.Transcription.LiveStreaming = true;

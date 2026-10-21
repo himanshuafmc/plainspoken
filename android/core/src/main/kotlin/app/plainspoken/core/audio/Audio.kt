@@ -125,9 +125,39 @@ object ClipAnalyzer {
     const val RMS_THRESHOLD = 0.0056
     const val MIN_LOUD_FRAMES = 3
 
+    /** Kept before the first and after the last loud frame when silence is trimmed, for soft starts and endings. */
+    const val KEEP_BEFORE_SECONDS = 0.2
+    const val KEEP_AFTER_SECONDS = 0.3
+
     fun analyze(samples: ShortArray, sampleRate: Int = WavEncoder.TARGET_SAMPLE_RATE): ClipVerdict {
         if (sampleRate <= 0 || samples.size < MIN_SECONDS * sampleRate) return ClipVerdict.TOO_SHORT
         return if (countLoudFrames(samples, sampleRate) >= MIN_LOUD_FRAMES) ClipVerdict.OK else ClipVerdict.SILENT
+    }
+
+    /**
+     * The clip without the silence before its first and after its last loud frame (pauses in between stay), or the clip
+     * unchanged when nothing would be trimmed or what is left would be too short.
+     */
+    fun trimSilence(samples: ShortArray, sampleRate: Int = WavEncoder.TARGET_SAMPLE_RATE): ShortArray {
+        if (sampleRate <= 0) return samples
+        val frame = max(1, (sampleRate * FRAME_SECONDS).toInt())
+        var first = -1
+        var last = -1
+        var start = 0
+        while (start + frame <= samples.size) {
+            if (rms(samples, start, frame) >= RMS_THRESHOLD) {
+                if (first < 0) first = start
+                last = start + frame
+            }
+
+            start += frame
+        }
+
+        if (first < 0) return samples
+        val from = max(0, first - (KEEP_BEFORE_SECONDS * sampleRate).toInt())
+        val to = min(samples.size, last + (KEEP_AFTER_SECONDS * sampleRate).toInt())
+        if ((from == 0 && to == samples.size) || to - from < MIN_SECONDS * sampleRate) return samples
+        return samples.copyOfRange(from, to)
     }
 
     fun countLoudFrames(samples: ShortArray, sampleRate: Int): Int {

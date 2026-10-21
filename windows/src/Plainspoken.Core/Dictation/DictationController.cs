@@ -285,18 +285,27 @@ public sealed class DictationController
             return;
         }
 
-        var wav = WavEncoder.Encode(audio.Samples, audio.SampleRate);
+        // A normal upload leaves out the silence before and after the speech: less to send, and services bill by the
+        // second. A stream has already sent it all.
+        var samples = live is null ? ClipAnalyzer.TrimSilence(audio.Samples, audio.SampleRate) : audio.Samples;
+        var clip = ReferenceEquals(samples, audio.Samples) ? audio : new RecordedAudio(samples, audio.SampleRate);
+        if (!ReferenceEquals(clip, audio))
+        {
+            _log.Info($"silence trimmed: {clip.DurationSeconds:0.0}s sent");
+        }
+
+        var wav = WavEncoder.Encode(clip.Samples, clip.SampleRate);
         PendingRecording? pending = null;
         try
         {
-            pending = _pending.Save(wav, audio.DurationSeconds, _time.GetUtcNow());
+            pending = _pending.Save(wav, clip.DurationSeconds, _time.GetUtcNow());
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
         {
             _log.Error("could not save the recording for retry; continuing", ex);
         }
 
-        await TranscribeAndDeliverAsync(wav, audio.DurationSeconds, pending, insertAtCursor: true, live);
+        await TranscribeAndDeliverAsync(wav, clip.DurationSeconds, pending, insertAtCursor: true, live);
     }
 
     private async Task TranscribeAndDeliverAsync(byte[] wav, double duration, PendingRecording? pending, bool insertAtCursor,

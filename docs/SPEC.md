@@ -37,6 +37,7 @@ Recording limits:
 - Clip checks after stop (no API call if either fails, show "Didn't catch that"):
   - duration < 0.6 s → too short;
   - silence: the audio is split into 30 ms frames; if fewer than 3 frames have RMS ≥ 0.0056 (≈ −45 dBFS, full scale = 1.0) the clip is treated as silent.
+- Before a normal upload (not a stream, which has already sent everything) the silence before the first and after the last loud frame is left out, keeping 0.2 s before and 0.3 s after; pauses in between stay, and the clip stays whole if less than 0.6 s would remain. The trimmed audio is what is sent, saved for retry and counted in Speed and cost.
 
 ## 3. Audio format
 
@@ -321,7 +322,7 @@ The Android app (v0.2.0) implements this spec with these platform differences. I
 Windows core and is tested against the same `shared/test-fixtures/` (API shapes, errors, settings, text cases).
 
 - **How dictation starts:** Plainspoken is an input method (a keyboard). Its big mic button toggles dictation (§2); while listening it becomes a green ✓, and ✕ cancels. There is no global hotkey. A **Retry** key appears while a saved recording is waiting; Retry from the keyboard inserts at the cursor, Retry from the app's history screen copies.
-- **Audio (§3):** `AudioRecord` captures 16 kHz mono PCM16 directly (source `VOICE_RECOGNITION`, falling back to `MIC`), so no resampling is needed. Blocks of 100 ms feed live streaming.
+- **Audio (§3):** `AudioRecord` captures 16 kHz mono PCM16 directly (source `VOICE_RECOGNITION`, falling back to `MIC`), so no resampling is needed. Blocks of 100 ms feed live streaming. While recording, Plainspoken holds the audio focus (`AUDIOFOCUS_GAIN_TRANSIENT_EXCLUSIVE`, usage `ASSISTANT`), so music and videos pause; if focus is refused (during a call, say) it records anyway.
 - **Insertion (§5):** `InputConnection.commitText`. A space is added in front when the cursor sits right after a word. If the text box has gone (the keyboard was closed while transcribing) or refuses the text, it is copied to the clipboard instead ("Copied — long-press the text box and tap Paste"). The keyboard also has space, comma, full stop, delete (repeats while held) and an enter key that performs the text box's action (Send, Search, …).
 - **Closing the keyboard while listening** stops and transcribes, as if ✓ was tapped.
 - **Floating mic (0.5.0, floating-mic edition only):** an accessibility service (`dot/DictationDot`, declared only in
@@ -333,16 +334,19 @@ Windows core and is tested against the same `shared/test-fixtures/` (API shapes,
   remembers the edge and the gap above the keyboard (on this phone only). A touch starts dictation at once (§2); a
   second tap finishes; a press held ≥ 0.5 s finishes on release; moving the finger within 1.2 s of touching turns the
   press into a drag and silently discards the recording it started. The text goes into the box that had focus when
-  dictation started: `ACTION_SET_TEXT` with the text before the cursor + dictation + text after it (placeholder text
-  ignored: flagged as showing the hint, equal to the hint, or text that offers no `ACTION_SET_SELECTION`), then the
-  result is checked (for up to 0.3 s, since Compose apps show it a frame later) and the cursor is put after the
-  dictation; if the app doesn't support or ignores that, or the box's text is only presumed a placeholder by that last
-  test (setting the text could wipe it if it were real), the text is pasted (`ACTION_PASTE`, which leaves it on the
-  clipboard); if the box is gone, it is copied. Hints, errors (with Retry / Open app) and the vocabulary offer appear in
-  a small label beside the dot. Learning: at the next dictation in the same app within 10 minutes, the box's text
-  (around the cursor for long texts) is compared with what was inserted, and corrected words are offered after that
-  dictation. The dot records in the accessibility service, which Android binds with the foreground capabilities needed
-  for the microphone; if Android still delivers only silence, the label says so and the log records it.
+  dictation started. On Android 13+, when the input connection Android gives the service (`flagInputMethodEditor`)
+  belongs to that box (it still has focus, in the same app), the text is typed with `commitText`, as a keyboard types,
+  and checked; otherwise, or if the box doesn't change: `ACTION_SET_TEXT` with the text before the cursor + dictation +
+  text after it (placeholder text ignored: flagged as showing the hint, equal to the hint, or text that offers no
+  `ACTION_SET_SELECTION`), then the result is checked (for up to 0.3 s, since Compose apps show it a frame later) and
+  the cursor is put after the dictation; if the app doesn't support or ignores that, or the box's text is only presumed
+  a placeholder by that last test (setting the text could wipe it if it were real), the text is pasted (`ACTION_PASTE`,
+  which leaves it on the clipboard); if the box is gone, it is copied. Hints, errors (with Retry / Open app) and the
+  vocabulary offer appear in a small label beside the dot. Learning: at the next dictation in the same app within 10
+  minutes, the box's text (around the cursor for long texts) is compared with what was inserted, and corrected words are
+  offered after that dictation. The dot records in the accessibility service, which Android binds with the foreground
+  capabilities needed for the microphone; if Android still delivers only silence, the label says so and the log records
+  it.
 - **Password boxes:** the mic is disabled (no audio is recorded or sent). **Incognito text boxes** (`IME_FLAG_NO_PERSONALIZED_LEARNING`): the transcript is not added to history.
 - **Sounds:** start is a short vibration only (a sound would be captured by the microphone that just opened); stop plays the same falling chirp as Windows, plus a vibration. Both follow `recording.sounds`.
 - **Settings (§6):** same JSON format and export/import (a Windows export imports on Android and vice versa). Windows-only fields are kept untouched. `local.apiKeyProtected` is encrypted with an AES-GCM key in the Android Keystore. The app is excluded from backup.

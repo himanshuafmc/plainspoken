@@ -18,12 +18,17 @@ The **Windows** app catches up with Android — any speech service, cleaner text
 - **Speed and cost** (tray menu): how fast each service has been for you, how often it failed and, once you enter its price, what it cost this month.
 - Error messages name the service that had the problem ("Sarvam took too long to answer", "Your Deepgram account is out of credits").
 - The Gemini "general model" now defaults to the more accurate gemini-3.5-flash.
+- Silence before and after you speak isn't sent, so uploads are smaller and services that charge by the second cost less; common Hindi words (accha, theek, abhi, …) are no longer offered as new vocabulary.
 - Your settings move to version 2 automatically; your Gemini key, vocabulary and history stay. Settings files now carry the same services, clean-up and snippets on both apps.
 
 ### Android
 - **Floating mic:** a small mic now appears next to your usual keyboard (Gboard, Samsung Keyboard, …) in any app. Tap it to dictate and tap again to finish, or hold it while you speak — no more switching keyboards. Drag it anywhere; it remembers the spot. It never appears in password boxes. Turn it on from the checklist in the app (Accessibility settings); the Plainspoken keyboard is still there if you prefer it.
 - **Two Android files.** The floating mic comes in its own APK, `Plainspoken-android-0.5.0-floating-mic.apk`, which needs one extra step to install: in some countries, India among them, Google Play Protect won't let apps with an accessibility service be installed from a browser, and the button to install anyway is greyed out. Turn off **Scan apps with Play Protect** in the Play Store while you install it, or install it from a computer over USB ([steps in the README](https://github.com/himanshuafmc/plainspoken#floating-mic-android)). The standard `Plainspoken-android-0.5.0.apk` (the keyboard, without the floating mic) installs from the phone as before. Either one replaces the other and keeps your settings.
 - The floating mic also learns your corrections: fix a name by hand, and the next time you dictate in that app it offers to add it to your vocabulary.
+- On Android 13 and later the floating mic types the way your keyboard does: WhatsApp formatting and mentions stay, and your clipboard is left alone.
+- Music and videos pause while you dictate, so they don't end up in your text.
+- Silence before and after you speak isn't sent, so uploads are smaller and services that charge by the second cost less.
+- Plainspoken no longer offers common Hindi words (accha, theek, abhi, …) as new vocabulary when you rephrase a sentence.
 - Settings files keep the Windows hold-to-talk setting when they go from Windows to Android and back.
 
 ## [0.4.0] - 2026-10-18

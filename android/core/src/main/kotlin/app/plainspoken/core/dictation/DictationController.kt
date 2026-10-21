@@ -225,15 +225,21 @@ class DictationController(
             return
         }
 
-        val wav = withContext(io) { WavEncoder.encode(audio.samples, audio.sampleRate) }
+        // A normal upload leaves out the silence before and after the speech: less to send, and services bill by the
+        // second. A stream has already sent it all.
+        val samples = if (session == null) ClipAnalyzer.trimSilence(audio.samples, audio.sampleRate) else audio.samples
+        val clip = if (samples === audio.samples) audio else RecordedAudio(samples, audio.sampleRate)
+        if (clip !== audio) log.info("silence trimmed: ${"%.1f".format(java.util.Locale.ROOT, clip.durationSeconds)}s sent")
+
+        val wav = withContext(io) { WavEncoder.encode(clip.samples, clip.sampleRate) }
         val rec = try {
-            withContext(io) { pending.save(wav, audio.durationSeconds, clock.now()) }
+            withContext(io) { pending.save(wav, clip.durationSeconds, clock.now()) }
         } catch (e: IOException) {
             log.error("could not save the recording for retry; continuing", e)
             null
         }
 
-        transcribeAndDeliver(wav, audio.durationSeconds, rec, insertAtCursor = true, session)
+        transcribeAndDeliver(wav, clip.durationSeconds, rec, insertAtCursor = true, session)
     }
 
     private suspend fun transcribeAndDeliver(

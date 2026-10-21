@@ -7,13 +7,13 @@ import android.view.accessibility.AccessibilityNodeInfo
 import kotlinx.coroutines.delay
 
 /**
- * Puts dictated text into another app's text box through accessibility actions, at the cursor:
- * first by setting the box's text (the text before the cursor + the dictation + the text after it), checked afterwards;
- * if the app doesn't support that, or the box may be showing only its placeholder, by pasting it. Never touches password
- * boxes.
+ * Puts dictated text into another app's text box at the cursor: on Android 13+ by typing it the way a keyboard does,
+ * when that is possible; otherwise through accessibility actions, first by setting the box's text (the text before the
+ * cursor + the dictation + the text after it), checked afterwards, and if the app doesn't support that, or the box may
+ * be showing only its placeholder, by pasting it. Never touches password boxes.
  */
 object FieldWriter {
-    enum class Result { SET, PASTED, FAILED }
+    enum class Result { TYPED, SET, PASTED, FAILED }
 
     /** The box's text, without its grey placeholder ("Message", "Type a message") when it is empty. */
     fun textOf(node: AccessibilityNodeInfo): String {
@@ -28,8 +28,13 @@ object FieldWriter {
     private fun mayBePlaceholder(node: AccessibilityNodeInfo): Boolean =
         !node.text.isNullOrEmpty() && node.actionList.none { it.id == AccessibilityNodeInfo.ACTION_SET_SELECTION }
 
-    suspend fun insert(node: AccessibilityNodeInfo, text: String, clipboard: ClipboardManager?): Result {
+    /**
+     * [type], when given, types into this box the way a keyboard does (Android 13+): that keeps the app's formatting,
+     * mentions and undo, and never touches the clipboard.
+     */
+    suspend fun insert(node: AccessibilityNodeInfo, text: String, clipboard: ClipboardManager?, type: ((String) -> Unit)? = null): Result {
         if (node.isPassword || !node.isEditable) return Result.FAILED
+        val shown = node.text?.toString()
         val current = textOf(node)
         var start = node.textSelectionStart
         var end = node.textSelectionEnd
@@ -43,6 +48,10 @@ object FieldWriter {
         // Add a space when the cursor sits right after a word, so dictations join up naturally.
         if (start > 0 && !current[start - 1].isWhitespace() && piece.firstOrNull()?.isLetterOrDigit() == true) piece = " $piece"
         val updated = current.substring(0, start) + piece + current.substring(end)
+        if (type != null) {
+            type(piece)
+            if (changed(node, shown)) return Result.TYPED
+        }
 
         // A box that may be showing only its placeholder gets a paste: if its text was real after all, setting the box to
         // the dictation alone would wipe it.
@@ -73,6 +82,16 @@ object FieldWriter {
             if (!node.refresh()) return true // the box can't be read back; trust the app
             val now = textOf(node)
             if (now != before && now.contains(piece)) return true
+        }
+
+        return false
+    }
+
+    /** Whether what the box shows changed (placeholder or not), waiting briefly as for [showsNewText]. */
+    private suspend fun changed(node: AccessibilityNodeInfo, before: String?): Boolean {
+        repeat(CHECKS) { attempt ->
+            if (attempt > 0) delay(CHECK_EVERY_MS)
+            if (!node.refresh() || node.text?.toString() != before) return true
         }
 
         return false

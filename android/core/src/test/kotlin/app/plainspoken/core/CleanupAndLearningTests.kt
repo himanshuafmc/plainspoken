@@ -134,6 +134,8 @@ class CorrectionLearnerTests {
         assertTrue(CorrectionLearner.candidates("send it on whatsapp please", "send it on WhatsApp please", vocab).isEmpty())
         assertTrue(CorrectionLearner.candidates("we will go there", "We will go there", vocab).isEmpty()) // sentence start
         assertTrue(CorrectionLearner.candidates("it is a big deal", "it is the big deal", vocab).isEmpty()) // common word
+        assertTrue(CorrectionLearner.candidates("haan main aa raha hoon", "accha main aa raha hoon", vocab).isEmpty()) // Hinglish words
+        assertTrue(CorrectionLearner.candidates("main kal aa raha hoon", "main abhi aa raha hoon", vocab).isEmpty())
     }
 
     @Test

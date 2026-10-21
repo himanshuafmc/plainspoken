@@ -18,6 +18,11 @@ public static class ClipAnalyzer
 
     public const int MinLoudFrames = 3;
 
+    /// <summary>Kept before the first and after the last loud frame when silence is trimmed, for soft starts and endings.</summary>
+    public const double KeepBeforeSeconds = 0.2;
+
+    public const double KeepAfterSeconds = 0.3;
+
     public static ClipVerdict Analyze(ReadOnlySpan<short> samples, int sampleRate = WavEncoder.TargetSampleRate)
     {
         if (sampleRate <= 0 || samples.Length < MinSeconds * sampleRate)
@@ -26,6 +31,43 @@ public static class ClipAnalyzer
         }
 
         return CountLoudFrames(samples, sampleRate) >= MinLoudFrames ? ClipVerdict.Ok : ClipVerdict.Silent;
+    }
+
+    /// <summary>
+    /// The clip without the silence before its first and after its last loud frame (pauses in between stay), or the
+    /// clip unchanged when nothing would be trimmed or what is left would be too short.
+    /// </summary>
+    public static short[] TrimSilence(short[] samples, int sampleRate = WavEncoder.TargetSampleRate)
+    {
+        ArgumentNullException.ThrowIfNull(samples);
+        if (sampleRate <= 0)
+        {
+            return samples;
+        }
+
+        var frame = Math.Max(1, (int)(sampleRate * FrameSeconds));
+        int first = -1, last = -1;
+        for (var start = 0; start + frame <= samples.Length; start += frame)
+        {
+            if (Rms(samples.AsSpan(start, frame)) >= RmsThreshold)
+            {
+                if (first < 0)
+                {
+                    first = start;
+                }
+
+                last = start + frame;
+            }
+        }
+
+        if (first < 0)
+        {
+            return samples;
+        }
+
+        var from = Math.Max(0, first - (int)(KeepBeforeSeconds * sampleRate));
+        var to = Math.Min(samples.Length, last + (int)(KeepAfterSeconds * sampleRate));
+        return (from == 0 && to == samples.Length) || to - from < MinSeconds * sampleRate ? samples : samples[from..to];
     }
 
     public static int CountLoudFrames(ReadOnlySpan<short> samples, int sampleRate)

@@ -1,12 +1,13 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!--
   The floating mic (app.plainspoken.dot.DictationDot): it needs to know which text box has focus and whether a keyboard
-  is showing, and to type into that box. It never filters or performs gestures or reads key presses.
+  is showing, and to type into that box (on Android 13+ through flagInputMethodEditor, the way a keyboard types). It
+  never filters or performs gestures or reads key presses.
 -->
 <accessibility-service xmlns:android="http://schemas.android.com/apk/res/android"
     android:accessibilityEventTypes="typeViewFocused|typeWindowStateChanged|typeWindowsChanged"
     android:accessibilityFeedbackType="feedbackGeneric"
-    android:accessibilityFlags="flagRetrieveInteractiveWindows"
+    android:accessibilityFlags="flagRetrieveInteractiveWindows|flagInputMethodEditor"
     android:canRetrieveWindowContent="true"
     android:description="@string/dot_service_description"
     android:isAccessibilityTool="false"
