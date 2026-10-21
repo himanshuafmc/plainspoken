@@ -34,7 +34,7 @@ public sealed class NullLog : ILog
 
 public static partial class Redactor
 {
-    /// <summary>Removes anything that looks like a Google API key and trims to a sane length.</summary>
+    /// <summary>Removes anything that looks like an API key and trims to a sane length.</summary>
     public static string Clean(string? text, int maxLength = 300)
     {
         if (string.IsNullOrEmpty(text))
@@ -43,6 +43,7 @@ public static partial class Redactor
         }
 
         var cleaned = GoogleKey().Replace(text, "[key]");
+        cleaned = OtherKeys().Replace(cleaned, "[key]");
         cleaned = KeyParam().Replace(cleaned, "$1[key]");
         cleaned = cleaned.Replace('\r', ' ').Replace('\n', ' ');
         return cleaned.Length <= maxLength ? cleaned : cleaned[..maxLength] + "…";
@@ -51,6 +52,10 @@ public static partial class Redactor
     [GeneratedRegex(@"AIza[0-9A-Za-z_\-]{20,}")]
     private static partial Regex GoogleKey();
 
-    [GeneratedRegex(@"((?:key|api_key|x-goog-api-key)[=:]\s*)[^\s&""']+", RegexOptions.IgnoreCase)]
+    /// <summary>OpenAI (sk-…), Sarvam and ElevenLabs (sk_…), Groq (gsk_…) and Deepgram (40 hex characters) keys.</summary>
+    [GeneratedRegex(@"\b(?:g?sk[-_][A-Za-z0-9_\-]{16,}|[0-9a-f]{40})\b")]
+    private static partial Regex OtherKeys();
+
+    [GeneratedRegex(@"((?:key|api_key|x-goog-api-key|api-subscription-key|xi-api-key)[=:]\s*|(?:bearer|token)\s+)[^\s&""']+", RegexOptions.IgnoreCase)]
     private static partial Regex KeyParam();
 }

@@ -115,8 +115,8 @@ class ServiceActivity : Activity() {
             val on = if (service == SpeechService.GEMINI) t.liveStreaming else config.streaming
             ui.toggle(
                 card,
-                "Stream while you speak (faster)",
-                "Sends your voice as you speak, so the text is ready moments after you stop. Used when this is the main service; if streaming fails the normal way is used.",
+                "Stream while you speak",
+                "Sends your voice as you speak, so the text is ready soon after you stop; it helps most with long dictations. Used when this is the main service; if streaming fails the normal way is used.",
                 on,
             ) { v ->
                 services.update {

@@ -127,13 +127,27 @@ jobs:
           PLAINSPOKEN_KEYSTORE_PASSWORD: ${{ secrets.PLAINSPOKEN_KEYSTORE_PASSWORD }}
           PLAINSPOKEN_KEY_ALIAS: ${{ secrets.PLAINSPOKEN_KEY_ALIAS }}
           PLAINSPOKEN_KEY_PASSWORD: ${{ secrets.PLAINSPOKEN_KEY_PASSWORD }}
-        run: ./gradlew :app:assembleRelease :app:lintRelease --console=plain
+        run: ./gradlew :app:assembleRelease :app:lintStandardRelease :app:lintFloatingMicRelease --console=plain
       - name: Name the APK
         run: |
           v=$(tr -d '[:space:]' < ../VERSION)
           suffix=$([ "${{ steps.key.outputs.signed }}" = "true" ] && echo "" || echo "-test")
-          cp app/build/outputs/apk/release/app-release.apk "../Plainspoken-android-$v$suffix.apk"
+          # Two editions of the same app: standard, and one with the floating mic (it needs an extra install step; see README).
+          cp app/build/outputs/apk/standard/release/app-standard-release.apk "../Plainspoken-android-$v$suffix.apk"
+          cp app/build/outputs/apk/floatingMic/release/app-floatingMic-release.apk "../Plainspoken-android-$v-floating-mic$suffix.apk"
           ls -l ../*.apk
+          # Which key signed them, and the package details Android checks when it installs an update.
+          bt=$(ls -d "$ANDROID_HOME"/build-tools/* | sort -V | tail -1)
+          for apk in ../Plainspoken-android-*.apk; do
+            echo "== $apk"
+            "$bt/apksigner" verify --print-certs "$apk" | grep -E "SHA-256|DN:"
+            "$bt/aapt2" dump badging "$apk" | grep -E "^package:|sdkVersion|targetSdkVersion"
+          done
+          # Only the floating-mic edition may declare an accessibility service (Play Protect blocks such sideloads in India).
+          if "$bt/aapt2" dump xmltree --file AndroidManifest.xml "../Plainspoken-android-$v$suffix.apk" | grep -q BIND_ACCESSIBILITY_SERVICE; then
+            echo "::error::The standard APK declares an accessibility service"; exit 1
+          fi
+          "$bt/aapt2" dump xmltree --file AndroidManifest.xml "../Plainspoken-android-$v-floating-mic$suffix.apk" | grep -q BIND_ACCESSIBILITY_SERVICE
       - uses: actions/upload-artifact@v7
         with:
           name: android
@@ -144,7 +158,7 @@ jobs:
         if: always()
         with:
           name: android-lint-report
-          path: android/app/build/reports/lint-results-release.html
+          path: android/app/build/reports/lint-results-*.html
           if-no-files-found: ignore
           retention-days: 7
 
@@ -176,7 +190,8 @@ jobs:
           if [[ "$GITHUB_REF" == refs/tags/* && "$GITHUB_REF_NAME" != "v$VERSION" ]]; then
             echo "::error::Tag $GITHUB_REF_NAME does not match VERSION ($VERSION)"; exit 1
           fi
-          if [ "${{ needs.android.outputs.signed }}" != "true" ] || [ ! -f "Plainspoken-android-$VERSION.apk" ]; then
+          if [ "${{ needs.android.outputs.signed }}" != "true" ] || [ ! -f "Plainspoken-android-$VERSION.apk" ] ||
+             [ ! -f "Plainspoken-android-$VERSION-floating-mic.apk" ]; then
             echo "::error::The Android APK isn't signed with the release key. Add the PLAINSPOKEN_KEYSTORE_BASE64, PLAINSPOKEN_KEYSTORE_PASSWORD, PLAINSPOKEN_KEY_ALIAS and PLAINSPOKEN_KEY_PASSWORD secrets (see CONTRIBUTING.md)."
             exit 1
           fi
@@ -184,6 +199,7 @@ jobs:
         run: |
           WIN="Plainspoken-win-x64-$VERSION.zip"
           APK="Plainspoken-android-$VERSION.apk"
+          MIC="Plainspoken-android-$VERSION-floating-mic.apk"
           # The section under "## [<version>]", up to the next "## [" heading; link lines are skipped.
           awk -v head="## [$VERSION]" '
             index($0, head) == 1 { found = 1; next }
@@ -202,12 +218,13 @@ jobs:
             echo "### Download"
             echo "- **Windows 10/11:** \`$WIN\` — unzip it and run \`Plainspoken.exe\`. If Windows shows \"Windows protected your PC\", click **More info**, then **Run anyway** (the app isn't code-signed)."
             echo "- **Android 8 or newer:** \`$APK\` — open it on your phone and allow installing apps from your browser or file manager when asked."
+            echo "- **Android with the floating mic:** \`$MIC\` — the same app plus a mic that floats next to your usual keyboard. In India and some other countries Play Protect blocks installing it from the phone: turn off **Scan apps with Play Protect** in the Play Store while you install it, or install it from a computer ([how](https://github.com/$GITHUB_REPOSITORY#floating-mic-android)). Either APK replaces the other and keeps your settings."
             echo
             echo "First steps for both are in the [README](https://github.com/$GITHUB_REPOSITORY#readme)."
             echo
             echo "SHA-256:"
             echo '```'
-            sha256sum "$WIN" "$APK"
+            sha256sum "$WIN" "$APK" "$MIC"
             echo '```'
           } > notes.md
           cat notes.md
@@ -217,11 +234,12 @@ jobs:
         run: |
           WIN="Plainspoken-win-x64-$VERSION.zip"
           APK="Plainspoken-android-$VERSION.apk"
+          MIC="Plainspoken-android-$VERSION-floating-mic.apk"
           if gh release view "$TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
             echo "Release $TAG exists; replacing the files and notes"
-            gh release upload "$TAG" "$WIN" "$APK" --clobber --repo "$GITHUB_REPOSITORY"
+            gh release upload "$TAG" "$WIN" "$APK" "$MIC" --clobber --repo "$GITHUB_REPOSITORY"
             gh release edit "$TAG" --notes-file notes.md --repo "$GITHUB_REPOSITORY"
           else
-            gh release create "$TAG" "$WIN" "$APK" --repo "$GITHUB_REPOSITORY" --target "$GITHUB_SHA" \
+            gh release create "$TAG" "$WIN" "$APK" "$MIC" --repo "$GITHUB_REPOSITORY" --target "$GITHUB_SHA" \
               --title "Plainspoken $TAG" --notes-file notes.md
           fi

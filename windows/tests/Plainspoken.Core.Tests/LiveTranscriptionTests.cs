@@ -285,12 +285,14 @@ internal sealed class FakeLiveSocket(FakeLiveServer server) : ILiveSocket
 
     public string? CloseReason { get; private set; }
 
-    public Task ConnectAsync(Uri uri, string? apiKey, CancellationToken ct)
+    public Task ConnectAsync(Uri uri, IReadOnlyDictionary<string, string> headers, CancellationToken ct)
     {
         Uri = uri;
-        Key = apiKey;
+        Key = headers.TryGetValue(GeminiClient.ApiKeyHeader, out var key) ? key : null;
         return server.FailConnect ? Task.FromException(new WebSocketException("404")) : Task.CompletedTask;
     }
+
+    public Task SendBinaryAsync(byte[] bytes, CancellationToken ct) => Task.CompletedTask;
 
     public Task SendAsync(string json, CancellationToken ct)
     {

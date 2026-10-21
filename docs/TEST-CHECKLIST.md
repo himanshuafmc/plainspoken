@@ -88,6 +88,30 @@ For each: [ ] text appears at the cursor, [ ] "um" removed and punctuation added
 - [ ] Export settings → open the file in Notepad → **no API key inside**. Import it back → vocabulary restored.
 - [ ] Microphone dropdown lists your microphones; choosing one works.
 
+## F2. Speech services, clean-up and extras (Windows 0.5.0)
+
+- [ ] Upgrade from 0.4.0: unzip over the old folder and start → the Gemini key, vocabulary and history are still there; Settings → General shows Gemini as the speech service and the general Gemini model as the first backup.
+- [ ] Settings → General → First backup → Sarvam → **Set up…** → paste a wrong key → **Test key** says it was not accepted; the right key → "Key works". OK → Save. The line under the services says every chosen service has a key.
+- [ ] Repeat for each service you use (OpenAI-compatible, Deepgram, ElevenLabs). For Groq, set the address to `https://api.groq.com/openai/v1` and the model to `whisper-large-v3-turbo`.
+- [ ] Make each service the main one in turn and dictate English, Hindi and Hinglish (5–10 s, with an "um" and a self-correction like "at 5, no, at 6") into Notepad: fillers gone, only the correction kept, punctuation right, Hinglish not translated. Time from stop to text: Sarvam ____ s, OpenAI ____ s, Deepgram ____ s, ElevenLabs ____ s.
+- [ ] Sarvam and Deepgram with **Stream while you speak** on and off (Set up…): compare the time to text. With Sarvam, on is no slower than off, and a long dictation with pauses is quicker; the log doesn't say "live: no text returned; using the normal engine".
+- [ ] Hindi words in: Roman letters vs Devanagari → the text follows it (with clean-up on).
+- [ ] Clean-up tab → **Off**: raw text from Sarvam/Deepgram with only "um"/"uh" removed. Back to Gemini Flash.
+- [ ] Clean-up → OpenAI-compatible with a chat key → Test key → dictate with Sarvam → tidy text. Back to Gemini Flash.
+- [ ] Give the main service a wrong key and keep a working backup: dictation still works (backup used); after two dictations the main one is skipped (the log says "paused"). Fix the key → the main service is used again at once.
+- [ ] Unplug the network cable / turn Wi-Fi off right after you stop (or pick a slow service as main): with "Speed" at 4 seconds the pill says "Still working — also asking …" and the first answer is used.
+- [ ] Long dictation with Sarvam as the main service (over 1 minute) → the whole text arrives.
+- [ ] **Hold to talk:** in Notepad, hold Right Ctrl, speak, let go → text inserted. A quick tap of Right Ctrl does nothing. Right Ctrl+C / Right Ctrl+V still copy and paste and never start a recording. Start with Ctrl+Alt+Space, then tap and hold Right Ctrl → the recording isn't stopped by it. Settings → Hold to talk → Right Alt / Off work as described.
+- [ ] Hold to talk in Word, a browser text box and WhatsApp desktop: the paste after release works (Ctrl isn't stuck).
+- [ ] Snippets tab: add "insert my address" → saying just that types the address; inside a sentence only that part is replaced.
+- [ ] **Learning:** dictate "Please call Samir tomorrow" into Notepad, change "Samir" to "Sameer" by hand, then dictate again in the same window → after that dictation the green pill offers "Add “Sameer” to your vocabulary?" → click → it's in Settings → Vocabulary. In another app, nothing is offered. With "Offer to add words I correct" off, nothing is offered.
+- [ ] Learning in Word, a browser (Gmail) and WhatsApp desktop: note which apps offer corrections: ________.
+- [ ] Tray → **Speed and cost…**: each service shows dictations, wait times and, after entering a price under Set up…, this month's cost. Clear empties it.
+- [ ] The log shows "compress: … → … bytes" for Sarvam/OpenAI/Deepgram/ElevenLabs (smaller uploads) and no errors about the encoder.
+- [ ] With streaming off, wait 3 s before speaking and 3 s after → the log says "silence trimmed: …s sent", and the first and last words are all there.
+- [ ] Export settings: the file has the service order, snippets and clean-up settings, **and no keys**. Import it on the phone → the same services and snippets.
+- [ ] First run on a fresh Windows user: tick the notice → **Use another service…** → Settings opens; set up Sarvam as the main service → dictation works without a Gemini key.
+
 ## G. Start with Windows
 
 - [ ] Settings → Options → tick "Start Plainspoken when Windows starts" → Save → restart Windows → Plainspoken's tray icon appears after login and the hotkey works.
@@ -166,7 +190,7 @@ For each: [ ] tap mic → it turns into a green ✓ with a moving halo and "List
 - [ ] Repeat for each service you use (OpenAI-compatible, Deepgram, ElevenLabs). For Groq, set the address to `https://api.groq.com/openai/v1` and the model to `whisper-large-v3-turbo`.
 - [ ] **Move up** makes a service the main one; **Remove** takes it out. The keyboard uses the new main service on the next dictation.
 - [ ] With each service as the main one, dictate English, Hindi and Hinglish (5–10 s, with an "um" and a self-correction like "at 5, no, at 6"): text appears, fillers gone, only the correction kept, punctuation right, Hinglish not translated. Time from ✓ to text: Sarvam ____ s, OpenAI ____ s, Deepgram ____ s, ElevenLabs ____ s.
-- [ ] Sarvam and Deepgram with **Stream while you speak** on and off: compare the time to text.
+- [ ] Sarvam and Deepgram with **Stream while you speak** on and off: compare the time to text. With Sarvam, on is no slower than off, and a long dictation with pauses is quicker; the log doesn't say "live: no text returned; using the normal engine".
 - [ ] Hindi words setting: Roman letters vs Devanagari → the text follows it (with clean-up on).
 - [ ] Clean-up → **Off**: raw text from Sarvam/Deepgram, with only "um"/"uh" removed. Back to Gemini.
 - [ ] Give the main service a wrong key and keep a working backup: dictation still works (backup used); after two dictations the main one is skipped (the log says "paused").
@@ -177,3 +201,25 @@ For each: [ ] tap mic → it turns into a green ✓ with a moving halo and "List
 - [ ] Dictate a name that comes out wrong, fix it with your usual keyboard, switch back to Plainspoken → "Add “…” to your vocabulary?" → **Add** → the word is in Settings → Vocabulary.
 - [ ] Settings → Speed and cost: each service shows dictations, typical time to text and, after entering a price on its screen, this month's cost.
 - [ ] Export settings: the file has the service order, snippets and clean-up settings, **and no keys**.
+
+## P. Floating mic (0.5.0)
+
+- [ ] **Standard APK** (`Plainspoken-android-0.5.0.apk`): download it on the phone and install over 0.4.0 → it installs (no "App not installed"). The checklist has no floating-mic step; Settings → Floating mic says it's in the floating-mic edition. The keyboard works as in 0.4.0.
+- [ ] **Floating-mic APK**, following README → Floating mic (Android): Play Store → Play Protect → ⚙ → scanning off → install the APK from the phone → scanning back on. (Or over USB: `adb devices` lists the phone → `adb install -r …-floating-mic.apk` says Success.) The app keeps the key, settings and history.
+- [ ] Open Plainspoken → the checklist shows "Turn on the floating mic". Open Accessibility settings → Plainspoken floating mic → On (Android 13+ after a phone install: App info → ⋮ → Allow restricted settings first). The checklist ticks it off.
+- [ ] With Gboard (or Samsung Keyboard) as your keyboard, tap a text box in WhatsApp → the mic appears at the right, above the keyboard. Close the keyboard → it disappears. Tap the box again → it's back. In a password box → no mic.
+- [ ] Tap the message box in the **ChatGPT** and **Claude** apps → the mic appears (these apps are built differently from WhatsApp); dictate → the text goes in once, not twice, with the cursor after it.
+- [ ] **Tap** the mic → it turns green ✓ with a level halo, a short vibration; speak → **tap** again → spinner → text appears at the cursor in WhatsApp, without the grey "Message" placeholder in front of it; the cursor is after the text. Dictate again → the two join with a space.
+- [ ] **Hold** the mic, speak, let go → text inserted. Hold for under half a second → it keeps listening until tapped.
+- [ ] **Drag** the mic up and to the left edge → it snaps to the left; open another app's text box → it's on the left at the same height above the keyboard. Settings → Floating mic → Move it back → right side again. A drag never leaves a recording running.
+- [ ] Text goes in correctly in: WhatsApp ☐, Gmail compose ☐, Chrome (a website's text box) ☐, Google Keep / Notes ☐, Messages ☐, Instagram/LinkedIn ☐, ChatGPT ☐, Claude ☐. Note any app where it was copied instead: ________.
+- [ ] Type a few words, put the cursor in the middle, dictate → the text goes in at the cursor, nothing else changes.
+- [ ] Dictate "Please call Samir tomorrow", change "Samir" to "Sameer" with Gboard, then dictate again in the same chat → after it, the label beside the mic offers "Add “Sameer” to your vocabulary?" → tap → it's in Settings → Vocabulary.
+- [ ] Airplane mode → dictate → the label says no internet with "Tap to retry" → turn airplane mode off → tap the label → the text goes into the box.
+- [ ] Switch to the Plainspoken keyboard → the floating mic hides (the keyboard has its own mic). Switch back to Gboard → it returns.
+- [ ] Settings → Floating mic → "Show the floating mic" off → it never appears; on → it's back.
+- [ ] **Android 13+:** copy a word, dictate into WhatsApp with the floating mic, then paste somewhere → you get the copied word, not the dictation; the log says "floating mic: text typed". In a WhatsApp group, write *bold* text and an @mention, put the cursor after them and dictate → both stay as they were.
+- [ ] Play music or a video, then dictate with the floating mic and with the keyboard → it pauses while you speak and carries on afterwards.
+- [ ] With streaming off, wait 3 s before speaking and 3 s after → the log says "silence trimmed: …s sent", and the first and last words are all there.
+- [ ] If the label ever says Android didn't let the floating mic use the microphone: note the phone model and Android version, export the log and report it.
+- [ ] Install the standard APK from the phone over the floating-mic edition → it installs, the floating mic is gone, settings are kept.

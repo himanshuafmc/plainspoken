@@ -19,5 +19,7 @@
   </ItemGroup>
   <ItemGroup>
     <None Include="..\..\..\shared\**\*" LinkBase="shared" CopyToOutputDirectory="PreserveNewest" />
+    <!-- The clean-up prompt must stay the same on both platforms; a test compares them. -->
+    <None Include="..\..\..\android\core\src\main\kotlin\app\plainspoken\core\transcription\Cleanup.kt" Link="android-cleanup.kt.txt" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 </Project>

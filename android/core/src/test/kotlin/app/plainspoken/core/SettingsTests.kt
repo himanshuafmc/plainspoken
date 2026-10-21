@@ -56,6 +56,14 @@ class SettingsTests {
     }
 
     @Test
+    fun `the Windows hold-to-talk key survives a round trip`() {
+        val windows = PlainspokenSettings().apply { holdKey = "rightAlt" }.normalize()
+        val back = SettingsJson.import(SettingsJson.export(windows), PlainspokenSettings())
+        assertEquals("rightAlt", back.holdKey)
+        assertEquals("rightCtrl", PlainspokenSettings().apply { holdKey = "capsLock" }.normalize().holdKey)
+    }
+
+    @Test
     fun `a file exported on Windows imports here and keeps local values`() {
         val current = PlainspokenSettings().apply { local.apiKeyProtected = "secret-blob" }
         val imported = SettingsJson.import(Fixtures.read("settings-export.json"), current)

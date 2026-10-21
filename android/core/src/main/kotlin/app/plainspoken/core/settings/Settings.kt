@@ -93,6 +93,9 @@ class PlainspokenSettings {
     /** Windows only: the small on-screen button. */
     var showMiniButton: Boolean = true
 
+    /** Windows only: record while this key is held down ("off", "rightCtrl", "rightAlt" or "rightShift"). */
+    var holdKey: String = DEFAULT_HOLD_KEY
+
     /** Spoken shortcuts: saying [Snippet.trigger] types [Snippet.text]. */
     var snippets: List<Snippet> = emptyList()
 
@@ -121,6 +124,7 @@ class PlainspokenSettings {
         snippets = SnippetCleaner.clean(snippets)
         recording.maxSeconds = recording.maxSeconds.coerceIn(30, 1800)
         hotkey = hotkey.trim().ifEmpty { DEFAULT_HOTKEY }
+        if (holdKey !in HOLD_KEYS) holdKey = DEFAULT_HOLD_KEY
         return this
     }
 
@@ -135,6 +139,8 @@ class PlainspokenSettings {
     companion object {
         const val CURRENT_SCHEMA_VERSION = 2
         const val DEFAULT_HOTKEY = "Ctrl+Alt+Space"
+        const val DEFAULT_HOLD_KEY = "rightCtrl"
+        private val HOLD_KEYS = setOf("off", "rightCtrl", "rightAlt", "rightShift")
 
         /** The general model's default before 0.4.0; more accurate gemini-3.5-flash replaces it. */
         private const val OLD_GENERATE_MODEL = "gemini-3.5-flash-lite"

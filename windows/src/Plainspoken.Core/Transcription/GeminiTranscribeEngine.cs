@@ -28,7 +28,7 @@ public sealed class GeminiTranscribeEngine : ITranscriptionEngine
         _timeout = timeout;
     }
 
-    public EngineKind Kind => EngineKind.Transcribe;
+    public SpeechService Service => SpeechService.Gemini;
 
     /// <summary>The background delete of the last uploaded file (exposed for tests).</summary>
     internal Task CleanupTask { get; private set; } = Task.CompletedTask;

@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- The floating-mic edition: the main manifest plus the floating mic's accessibility service. -->
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <application>
+        <!-- Only Android can bind it, and only after the user switches it on in Accessibility settings. -->
+        <service
+            android:name="app.plainspoken.dot.DictationDot"
+            android:exported="true"
+            android:label="@string/dot_service_label"
+            android:permission="android.permission.BIND_ACCESSIBILITY_SERVICE">
+            <intent-filter>
+                <action android:name="android.accessibilityservice.AccessibilityService" />
+            </intent-filter>
+            <meta-data
+                android:name="android.accessibilityservice"
+                android:resource="@xml/floating_mic" />
+        </service>
+    </application>
+</manifest>

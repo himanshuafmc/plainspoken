@@ -5,4 +5,6 @@
     <string name="history_title">Recent transcripts</string>
     <string name="stats_title">Speed and cost</string>
     <string name="subtype_label">English, Hindi and Hinglish</string>
+    <string name="dot_service_label">Plainspoken floating mic</string>
+    <string name="dot_service_description">Shows a small Plainspoken mic next to your keyboard in any app. Tap it to dictate and tap again to finish (or hold it while you speak), and Plainspoken types the text into the text box you are in. To do that it looks only at the text box you are typing in, never at password boxes, and nothing it sees is stored or sent anywhere; only your recordings go to the speech service you chose.</string>
 </resources>

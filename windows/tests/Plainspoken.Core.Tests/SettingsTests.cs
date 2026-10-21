@@ -11,7 +11,7 @@ public class SettingsTests
     {
         Transcription =
         {
-            Engine = EngineKind.Generate,
+            ServiceOrder = ["gemini-general", "sarvam"],
             Languages = LanguagePreset.Auto,
             Mode = TranscriptionMode.Verbatim,
             CustomVocabulary = ["WhatsApp", "PowerPoint"],
@@ -21,6 +21,7 @@ public class SettingsTests
         Insertion = { Method = InsertionMethod.Type, TrailingSpace = false },
         History = { Enabled = false },
         Hotkey = "Ctrl+Shift+F9",
+        Snippets = [new Snippet { Trigger = "insert my address", Text = "1 Example Road" }],
         Local = { ApiKeyProtected = "AQAAANCMnd8BFdERjHoAwE/Cl+s=", MicrophoneId = "{mic}", StartWithWindows = true, FirstRunCompleted = true },
     }.Normalize();
 
@@ -39,7 +40,7 @@ public class SettingsTests
     public void Json_uses_camelCase_names_and_string_enums()
     {
         var json = SettingsSerializer.Serialize(Sample());
-        Assert.Contains("\"schemaVersion\": 1", json, StringComparison.Ordinal);
+        Assert.Contains("\"schemaVersion\": 2", json, StringComparison.Ordinal);
         Assert.Contains("\"engine\": \"generate\"", json, StringComparison.Ordinal);
         Assert.Contains("\"languages\": \"auto\"", json, StringComparison.Ordinal);
         Assert.Contains("\"method\": \"type\"", json, StringComparison.Ordinal);
@@ -153,6 +154,116 @@ public class SettingsTests
         var recovered = store.Load(() => new PlainspokenSettings());
         Assert.Equal(EngineKind.Transcribe, recovered.Transcription.Engine);
         Assert.Single(Directory.GetFiles(dir.Path, "settings.json.bad-*"));
+    }
+}
+
+public class SettingsVersion2Tests
+{
+    [Fact]
+    public void Version_1_files_become_a_service_order()
+    {
+        var s = SettingsSerializer.Deserialize("""
+            { "schemaVersion": 1, "transcription": { "engine": "generate", "useBackupEngineWhenLimited": false,
+              "generateModel": "gemini-3.5-flash-lite" } }
+            """);
+        Assert.Equal(2, s.SchemaVersion);
+        Assert.Equal(["gemini-general"], s.Transcription.ServiceOrder);
+        Assert.Equal("gemini-3.5-flash", s.Transcription.GenerateModel);
+        Assert.Equal(EngineKind.Generate, s.Transcription.Engine);
+
+        var both = SettingsSerializer.Deserialize("""{ "schemaVersion": 1, "transcription": { "engine": "transcribe", "generateModel": "my-model" } }""");
+        Assert.Equal(["gemini", "gemini-general"], both.Transcription.ServiceOrder);
+        Assert.Equal("my-model", both.Transcription.GenerateModel);
+        Assert.True(both.Transcription.UseBackupEngineWhenLimited);
+    }
+
+    [Fact]
+    public void The_shared_version_1_export_imports_and_migrates()
+    {
+        var mine = new PlainspokenSettings { Local = { ApiKeyProtected = "mine" } }.Normalize();
+        var s = SettingsSerializer.Import(Fixtures.Read("settings-export.json"), mine);
+        Assert.Equal(["gemini"], s.Transcription.ServiceOrder);
+        Assert.Equal("gemini-3.5-flash", s.Transcription.GenerateModel);
+        Assert.Equal("Ctrl+Shift+D", s.Hotkey);
+        Assert.Equal(HoldKey.RightCtrl, s.HoldKey);
+        Assert.Equal("mine", s.Local.ApiKeyProtected);
+    }
+
+    [Fact]
+    public void Service_order_drops_unknown_and_repeated_ids_and_is_never_empty()
+    {
+        var s = new PlainspokenSettings { Transcription = { ServiceOrder = ["sarvam", "nope", "sarvam", "deepgram", "openai", "elevenlabs"] } }.Normalize();
+        Assert.Equal(["sarvam", "deepgram", "openai"], s.Transcription.ServiceOrder);
+        Assert.Equal([SpeechService.Sarvam, SpeechService.Deepgram, SpeechService.OpenAI], s.Transcription.OrderedServices());
+        Assert.False(s.Transcription.UseBackupEngineWhenLimited);
+
+        var empty = new PlainspokenSettings { Transcription = { ServiceOrder = [] } }.Normalize();
+        Assert.Equal(["gemini"], empty.Transcription.ServiceOrder);
+    }
+
+    [Fact]
+    public void Service_settings_get_defaults_and_bad_values_are_repaired()
+    {
+        var s = SettingsSerializer.Deserialize("""
+            { "transcription": { "services": { "openai": { "apiBaseUrl": "https://api.groq.com/openai/v1/", "model": " whisper-large-v3 " },
+              "sarvam": { "pricePerHour": -5, "option": "  translit " }, "deepgram": { "apiBaseUrl": "ftp://bad" } },
+              "hedgeSeconds": 99, "currency": "", "cleanup": { "provider": "openai", "geminiModel": "models/gemini-3.5-flash" } } }
+            """);
+        var t = s.Transcription;
+        Assert.Equal("https://api.groq.com/openai/v1", t.Services.OpenAI.ApiBaseUrl);
+        Assert.Equal("whisper-large-v3", t.ModelOf(SpeechService.OpenAI));
+        Assert.Equal(0, t.Services.Sarvam.PricePerHour);
+        Assert.Equal("translit", t.Services.Sarvam.Option);
+        Assert.Equal("https://api.deepgram.com", t.BaseUrlOf(SpeechService.Deepgram));
+        Assert.Equal("nova-3", t.ModelOf(SpeechService.Deepgram));
+        Assert.Equal("saaras:v3", t.ModelOf(SpeechService.Sarvam));
+        Assert.Equal(30, t.HedgeSeconds);
+        Assert.Equal("₹", t.Currency);
+        Assert.Equal(CleanupProvider.OpenAI, t.Cleanup.Provider);
+        Assert.Equal("gemini-3.5-flash", t.Cleanup.GeminiModel);
+        Assert.False(new PlainspokenSettings().Normalize().Transcription.Services.ElevenLabs.VocabularyHints);
+        Assert.Equal(30, new PlainspokenSettings().Normalize().Transcription.Services.Sarvam.PricePerHour);
+    }
+
+    [Fact]
+    public void Names_match_the_Android_files()
+    {
+        var s = new PlainspokenSettings { Transcription = { Cleanup = { Provider = CleanupProvider.OpenAI }, HindiScript = HindiScript.AsSpoken } }.Normalize();
+        var json = JsonNode.Parse(SettingsSerializer.Export(s))!["transcription"]!;
+        Assert.Equal("openai", json["cleanup"]!["provider"]!.GetValue<string>());
+        Assert.Equal("asSpoken", json["hindiScript"]!.GetValue<string>());
+        var services = json["services"]!.AsObject().Select(p => p.Key).ToList();
+        Assert.Equal(["gemini", "geminiGeneral", "sarvam", "openai", "deepgram", "elevenlabs"], services);
+        Assert.NotNull(json["cleanup"]!["openaiBaseUrl"]);
+        Assert.Equal("rightCtrl", JsonNode.Parse(SettingsSerializer.Export(s))!["holdKey"]!.GetValue<string>());
+    }
+
+    [Fact]
+    public void Snippets_are_trimmed_deduplicated_and_capped()
+    {
+        var s = new PlainspokenSettings
+        {
+            Snippets =
+            [
+                new Snippet { Trigger = "  my   address ", Text = " 1 Example Road " },
+                new Snippet { Trigger = "MY ADDRESS", Text = "again" },
+                new Snippet { Trigger = "", Text = "x" },
+                new Snippet { Trigger = new string('a', 61), Text = "x" },
+                new Snippet { Trigger = "sign off", Text = new string('b', 2500) },
+            ],
+        }.Normalize();
+        Assert.Equal(["my address", "sign off"], s.Snippets.Select(x => x.Trigger));
+        Assert.Equal("1 Example Road", s.Snippets[0].Text);
+        Assert.Equal(2000, s.Snippets[1].Text.Length);
+    }
+
+    [Fact]
+    public void Local_keys_by_slot_survive_and_never_export()
+    {
+        var s = new PlainspokenSettings { Local = { ApiKeysProtected = { ["sarvam"] = "PROTECTED-SARVAM" } } }.Normalize();
+        var copy = SettingsSerializer.Deserialize(SettingsSerializer.Serialize(s));
+        Assert.Equal("PROTECTED-SARVAM", copy.Local.ApiKeysProtected["sarvam"]);
+        Assert.DoesNotContain("PROTECTED-SARVAM", SettingsSerializer.Export(s), StringComparison.Ordinal);
     }
 }
 

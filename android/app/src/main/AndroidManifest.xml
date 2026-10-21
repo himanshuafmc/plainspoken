@@ -48,6 +48,8 @@
             android:exported="false"
             android:label="@string/stats_title" />
 
+        <!-- The floating mic's accessibility service is declared only in the floatingMic edition (src/floatingMic). -->
+
         <service
             android:name=".keyboard.PlainspokenKeyboard"
             android:exported="true"

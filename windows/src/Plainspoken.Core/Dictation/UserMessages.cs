@@ -1,3 +1,4 @@
+using Plainspoken.Core.Settings;
 using Plainspoken.Core.Time;
 using Plainspoken.Core.Transcription;
 
@@ -15,7 +16,7 @@ public static class UserMessages
     public const string ThirtySecondsLeft = "30 s left";
 
     public static UserMessage NoKey { get; } =
-        new("Add your free Gemini API key in Settings to start.", UserAction.OpenSettings, RunActionNow: true);
+        new("Add a key for your speech service in Settings to start.", UserAction.OpenSettings, RunActionNow: true);
 
     public static UserMessage Unexpected { get; } =
         new("Something went wrong. Your recording is saved — use Retry.", UserAction.Retry);
@@ -26,20 +27,29 @@ public static class UserMessages
     public static UserMessage For(TranscriptionException ex, DateTimeOffset now, TimeZoneInfo local)
     {
         ArgumentNullException.ThrowIfNull(ex);
+        // Gemini errors name Google (whose servers they are); the others name the service.
+        var google = ex.Service is not { } s || s.IsGemini();
+        var who = google ? "Google" : KeyTester.Capitalise(ex.Service!.Value.ShortName());
+        var keyName = google ? "Gemini API key" : RemoveThe(ex.Service!.Value.ShortName()) + " key";
         return ex.Kind switch
         {
             TranscriptionErrorKind.NoKey => NoKey,
-            TranscriptionErrorKind.InvalidKey => new("Your Gemini API key was not accepted. Please check it in Settings. Your recording is saved.", UserAction.OpenSettings, RunActionNow: true),
-            TranscriptionErrorKind.DailyQuota => new($"Free daily limit reached. Resets at {QuotaReset.FormatNextReset(now, local)}. Your recording is saved.", UserAction.Retry),
+            TranscriptionErrorKind.InvalidKey => new($"Your {keyName} was not accepted. Please check it in Settings. Your recording is saved.", UserAction.OpenSettings, RunActionNow: true),
+            TranscriptionErrorKind.DailyQuota => google
+                ? new($"Free daily limit reached. Resets at {QuotaReset.FormatNextReset(now, local)}. Your recording is saved.", UserAction.Retry)
+                : new($"{who}'s daily limit is reached. Your recording is saved — try Retry later.", UserAction.Retry),
+            TranscriptionErrorKind.NoCredits => new($"Your {who} account is out of credits or over its limit. Your recording is saved.", UserAction.Retry),
             TranscriptionErrorKind.RateLimited => new("Too many requests right now. Your recording is saved — try Retry in a minute.", UserAction.Retry),
             TranscriptionErrorKind.Network => new("No internet connection. Your recording is saved — use Retry when you're back online.", UserAction.Retry),
-            TranscriptionErrorKind.Timeout => new("Google took too long to answer. Your recording is saved — try Retry.", UserAction.Retry),
-            TranscriptionErrorKind.Server => new("Google's service had a problem. Your recording is saved — try Retry.", UserAction.Retry),
-            TranscriptionErrorKind.ModelNotFound => new("The speech model isn't available. Check the model name in Settings → Advanced.", UserAction.OpenSettings),
-            TranscriptionErrorKind.Blocked => new("Google declined to transcribe this recording. It is saved — you can try Retry.", UserAction.Retry),
-            _ => new("Something unexpected came back from Google. Your recording is saved — try Retry.", UserAction.Retry),
+            TranscriptionErrorKind.Timeout => new($"{who} took too long to answer. Your recording is saved — try Retry.", UserAction.Retry),
+            TranscriptionErrorKind.Server => new($"{who}'s service had a problem. Your recording is saved — try Retry.", UserAction.Retry),
+            TranscriptionErrorKind.ModelNotFound => new("The speech model isn't available. Check the model name in Settings.", UserAction.OpenSettings),
+            TranscriptionErrorKind.Blocked => new($"{who} declined to transcribe this recording. It is saved — you can try Retry.", UserAction.Retry),
+            _ => new($"Something unexpected came back from {who}. Your recording is saved — try Retry.", UserAction.Retry),
         };
     }
+
+    private static string RemoveThe(string name) => name.StartsWith("the ", StringComparison.Ordinal) ? name[4..] : name;
 
     public static UserMessage For(RecorderErrorKind kind) => kind switch
     {

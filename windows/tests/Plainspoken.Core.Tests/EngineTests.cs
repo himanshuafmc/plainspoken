@@ -305,19 +305,21 @@ public class EngineTests
     [Fact]
     public async Task Key_tester_reports_good_bad_and_missing_model()
     {
+        var settings = new PlainspokenSettings().Normalize();
         var ok = new GeminiFake();
-        Assert.True((await KeyTester.TestAsync(ok.Client(), TranscriptionSettings.DefaultApiBaseUrl, "gemini-3.5-transcribe", Key, NullLog.Instance, default)).Ok);
+        Assert.True((await KeyTester.TestAsync(ok.Client(), SpeechService.Gemini, settings, Key, NullLog.Instance, default)).Ok);
         Assert.Equal("https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-transcribe", ok.Handler.Requests.Single().Uri.AbsoluteUri);
 
         var bad = new GeminiFake { Override = _ => FakeHttpHandler.Json(HttpStatusCode.BadRequest, Fixtures.Read("error-400-invalid-key.json")) };
-        var badResult = await KeyTester.TestAsync(bad.Client(), TranscriptionSettings.DefaultApiBaseUrl, "gemini-3.5-transcribe", Key, NullLog.Instance, default);
+        var badResult = await KeyTester.TestAsync(bad.Client(), SpeechService.Gemini, settings, Key, NullLog.Instance, default);
         Assert.False(badResult.Ok);
         Assert.Contains("did not accept", badResult.Message, StringComparison.Ordinal);
 
         var missing = new GeminiFake { Override = _ => FakeHttpHandler.Json(HttpStatusCode.NotFound, """{"error":{"code":404,"message":"not found"}}""") };
-        Assert.Contains("isn't available", (await KeyTester.TestAsync(missing.Client(), TranscriptionSettings.DefaultApiBaseUrl, "x", Key, NullLog.Instance, default)).Message, StringComparison.Ordinal);
+        settings.Transcription.TranscribeModel = "x";
+        Assert.Contains("isn't available", (await KeyTester.TestAsync(missing.Client(), SpeechService.Gemini, settings, Key, NullLog.Instance, default)).Message, StringComparison.Ordinal);
 
-        Assert.False((await KeyTester.TestAsync(ok.Client(), TranscriptionSettings.DefaultApiBaseUrl, "x", " ", NullLog.Instance, default)).Ok);
+        Assert.False((await KeyTester.TestAsync(ok.Client(), SpeechService.Gemini, settings, " ", NullLog.Instance, default)).Ok);
     }
 
     private sealed class FakeHttpHandlerThatHangs : HttpMessageHandler
@@ -370,121 +372,5 @@ public class RetryPolicyTests
             throw new TranscriptionException(TranscriptionErrorKind.InvalidKey, "no", 401);
         }, NullLog.Instance, default));
         Assert.Equal(1, attempts);
-    }
-}
-
-public class TranscriptionServiceTests
-{
-    private sealed class ScriptedEngine(EngineKind kind, Func<int, string> behaviour) : ITranscriptionEngine
-    {
-        public int Calls { get; private set; }
-
-        public EngineKind Kind => kind;
-
-        public Task<string> TranscribeAsync(TranscriptionRequest request, CancellationToken ct) =>
-            Task.FromResult(behaviour(++Calls));
-    }
-
-    private static TranscriptionRequest Req() => new([1], 1, TranscriptionMode.Smart, LanguagePreset.Auto, []);
-
-    private static TranscriptionException Limited(TranscriptionErrorKind kind = TranscriptionErrorKind.RateLimited, double retry = 20) =>
-        new(kind, "429", 429, TimeSpan.FromSeconds(retry));
-
-    [Fact]
-    public async Task Uses_the_selected_engine()
-    {
-        var t = new ScriptedEngine(EngineKind.Transcribe, _ => "from transcribe");
-        var g = new ScriptedEngine(EngineKind.Generate, _ => "from generate");
-        var service = new TranscriptionService((k, _) => k == EngineKind.Transcribe ? t : g, NullLog.Instance);
-
-        var settings = new PlainspokenSettings { Transcription = { Engine = EngineKind.Generate } };
-        var outcome = await service.TranscribeAsync(Req(), settings, null, default);
-
-        Assert.Equal("from generate", outcome.Text);
-        Assert.Equal(0, t.Calls);
-    }
-
-    [Fact]
-    public async Task Rate_limit_falls_back_to_the_backup_engine()
-    {
-        var t = new ScriptedEngine(EngineKind.Transcribe, _ => throw Limited());
-        var g = new ScriptedEngine(EngineKind.Generate, _ => "backup text");
-        var statuses = new List<string>();
-        var service = new TranscriptionService((k, _) => k == EngineKind.Transcribe ? t : g, NullLog.Instance, NoDelay.Delay);
-
-        var outcome = await service.TranscribeAsync(Req(), new PlainspokenSettings(), new SyncProgress(statuses), default);
-
-        Assert.Equal("backup text", outcome.Text);
-        Assert.Equal(EngineKind.Generate, outcome.Engine);
-        Assert.Contains(statuses, s => s.Contains("backup", StringComparison.Ordinal));
-    }
-
-    [Fact]
-    public async Task Without_backup_a_short_per_minute_limit_waits_and_retries_once()
-    {
-        var waits = new List<TimeSpan>();
-        var t = new ScriptedEngine(EngineKind.Transcribe, n => n == 1 ? throw Limited(retry: 20) : "second try");
-        var service = new TranscriptionService((_, _) => t, NullLog.Instance, (d, _) => { waits.Add(d); return Task.CompletedTask; });
-        var settings = new PlainspokenSettings { Transcription = { UseBackupEngineWhenLimited = false } };
-
-        var outcome = await service.TranscribeAsync(Req(), settings, null, default);
-
-        Assert.Equal("second try", outcome.Text);
-        Assert.Equal([TimeSpan.FromSeconds(21)], waits);
-    }
-
-    [Fact]
-    public async Task Daily_quota_is_reported_when_backup_also_fails()
-    {
-        var t = new ScriptedEngine(EngineKind.Transcribe, _ => throw Limited(TranscriptionErrorKind.DailyQuota, 40000));
-        var g = new ScriptedEngine(EngineKind.Generate, _ => throw new TranscriptionException(TranscriptionErrorKind.Network, "down"));
-        var service = new TranscriptionService((k, _) => k == EngineKind.Transcribe ? t : g, NullLog.Instance, NoDelay.Delay);
-
-        var ex = await Assert.ThrowsAsync<TranscriptionException>(() => service.TranscribeAsync(Req(), new PlainspokenSettings(), null, default));
-
-        Assert.Equal(TranscriptionErrorKind.DailyQuota, ex.Kind);
-        Assert.Equal(1, t.Calls);
-        Assert.Equal(1, g.Calls);
-    }
-
-    [Fact]
-    public async Task Warm_up_calls_the_model_once_per_interval_and_never_throws()
-    {
-        var calls = 0;
-        var service = new TranscriptionService((_, _) => new ScriptedEngine(EngineKind.Transcribe, _ => "x"), NullLog.Instance,
-            warmUp: (_, _) => { Interlocked.Increment(ref calls); throw new HttpRequestException("offline"); });
-
-        service.WarmUp(new PlainspokenSettings());
-        service.WarmUp(new PlainspokenSettings()); // within 20 s: ignored
-        await Task.Delay(200);
-
-        Assert.Equal(1, calls);
-    }
-
-    [Fact]
-    public async Task Gemini_warm_up_is_a_metadata_get_for_the_selected_model()
-    {
-        var fake = new GeminiFake();
-        var warmUp = TranscriptionService.GeminiWarmUp(fake.Client(), () => "k", NullLog.Instance);
-        await warmUp(new PlainspokenSettings(), CancellationToken.None);
-        var call = Assert.Single(fake.Handler.Requests);
-        Assert.Equal(HttpMethod.Get, call.Method);
-        Assert.Equal("https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-transcribe", call.Uri.AbsoluteUri);
-    }
-
-    [Fact]
-    public async Task Other_errors_do_not_trigger_backup()
-    {
-        var t = new ScriptedEngine(EngineKind.Transcribe, _ => throw new TranscriptionException(TranscriptionErrorKind.InvalidKey, "401", 401));
-        var g = new ScriptedEngine(EngineKind.Generate, _ => "nope");
-        var service = new TranscriptionService((k, _) => k == EngineKind.Transcribe ? t : g, NullLog.Instance, NoDelay.Delay);
-
-        await Assert.ThrowsAsync<TranscriptionException>(() => service.TranscribeAsync(Req(), new PlainspokenSettings(), null, default));
-        Assert.Equal(0, g.Calls);
-    }
-
-    private sealed class SyncProgress(List<string> sink) : IProgress<string>
-    {
-        public void Report(string value) => sink.Add(value);
     }
 }

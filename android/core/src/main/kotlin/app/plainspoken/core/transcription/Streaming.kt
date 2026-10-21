@@ -27,6 +27,7 @@ import java.nio.ByteOrder
 import java.time.Duration
 import java.time.Instant
 import java.util.Base64
+import java.util.concurrent.atomic.AtomicBoolean
 import kotlin.coroutines.cancellation.CancellationException
 
 /** How one service streams: where to connect, how audio and the end are sent, and how replies are read. */
@@ -44,10 +45,45 @@ interface StreamProtocol {
     val closeMessage: String?
 
     /**
-     * Reads one server message, adding finished text to [pieces]. Returns true when the service has confirmed the
-     * end of the stream. Throws [TranscriptionException] for an error message.
+     * Reads one server message, adding finished text to [pieces] and what it says about speech to [progress]. Returns
+     * true when the service has confirmed the end of the stream. Throws [TranscriptionException] for an error message.
      */
-    fun apply(message: String, pieces: MutableList<String>, endSent: Boolean): Boolean
+    fun apply(message: String, pieces: MutableList<String>, endSent: Boolean, progress: StreamProgress): Boolean
+}
+
+/**
+ * What a service that reports when speech starts and ends (Sarvam's VAD signals) has said in one dictation, so the end
+ * can be told apart from a slow reply. Each stretch of speech gets a transcript once it ends, or once the end of audio
+ * ends it.
+ */
+class StreamProgress {
+    private var reported = false
+    private var open = false
+    private var ended = 0 // stretches that ended and haven't been transcribed yet
+
+    fun speechStarted() {
+        reported = true
+        open = true
+    }
+
+    fun speechEnded() {
+        reported = true
+        if (!open) return
+        open = false
+        ended++
+    }
+
+    /** A transcript arrived. Before the end of audio, one for a stretch still going on is only part of it. */
+    fun transcribed(endSent: Boolean) {
+        if (ended > 0) {
+            ended--
+        } else if (endSent) {
+            open = false
+        }
+    }
+
+    /** Transcripts still to come, or null when the service doesn't say. */
+    val owed: Int? get() = if (reported) ended + (if (open) 1 else 0) else null
 }
 
 /**
@@ -62,8 +98,12 @@ class StreamingTranscriber(
     internal val log: Log,
     internal val scope: CoroutineScope = BackgroundScope,
     internal val stepTimeout: Duration = Duration.ofSeconds(10),
-    /** After the end of audio, stop once nothing more arrives for this long. */
+    /** After the end of audio, stop once nothing more arrives for this long (services that don't say what's to come). */
     internal val quietAfterEnd: Duration = Duration.ofMillis(900),
+    /** After the end of audio with no transcript owed, stop once nothing more arrives for this long. */
+    internal val settleAfterEnd: Duration = Duration.ofMillis(300),
+    /** After the end of audio, wait this long for each transcript the service still owes. */
+    internal val owedAfterEnd: Duration = Duration.ofMillis(2500),
     private val failuresBeforePause: Int = 2,
     private val pauseAfterFailures: Duration = Duration.ofMinutes(15),
     private val now: () -> Instant = { Instant.now() },
@@ -161,13 +201,21 @@ internal class StreamingSession(private val owner: StreamingTranscriber, private
     private suspend fun stream(socket: LiveSocket): String = coroutineScope {
         val protocol = owner.protocol
         val pieces = ArrayList<String>()
+        val progress = StreamProgress()
         val endSent = CompletableDeferred<Unit>()
+        val ending = AtomicBoolean(false) // set before the end is sent, so a quick reply to it is read as one
         var messages = 0
         val receive = async {
             while (true) {
                 val message: String? = if (endSent.isCompleted) {
+                    val wait = when (progress.owed) {
+                        null -> owner.quietAfterEnd
+                        0 -> owner.settleAfterEnd
+                        else -> owner.owedAfterEnd
+                    }
+
                     try {
-                        withTimeout(owner.quietAfterEnd.toMillis()) { socket.receive() }
+                        withTimeout(wait.toMillis()) { socket.receive() }
                     } catch (_: TimeoutCancellationException) {
                         return@async // finished: nothing more came after the end of audio
                     }
@@ -186,7 +234,7 @@ internal class StreamingSession(private val owner: StreamingTranscriber, private
                 }
 
                 messages++
-                if (protocol.apply(message, pieces, endSent.isCompleted)) return@async
+                if (protocol.apply(message, pieces, ending.get() || endSent.isCompleted, progress)) return@async
             }
         }
 
@@ -199,6 +247,7 @@ internal class StreamingSession(private val owner: StreamingTranscriber, private
             }
 
             if (buffer.size > 0 && !receive.isCompleted) protocol.sendAudio(socket, drain(buffer))
+            ending.set(true)
             if (!receive.isCompleted) socket.send(protocol.endMessage)
             endSent.complete(Unit)
             receive.await()
@@ -251,7 +300,9 @@ private fun enc(s: String) = URLEncoder.encode(s, "UTF-8").replace("+", "%20")
 
 /**
  * Sarvam streaming (wss://api.sarvam.ai/speech-to-text/ws): raw 16 kHz PCM sent base64 in JSON audio messages,
- * {"type":"flush"} at the end; replies {"type":"data","data":{"transcript":…}} per stretch of speech.
+ * {"type":"flush"} at the end; replies {"type":"data","data":{"transcript":…}} per stretch of speech, and
+ * {"type":"events","data":{"signal_type":"START_SPEECH"|"END_SPEECH"}} when each starts and ends (vad_signals), which is
+ * how the end is recognised: Sarvam doesn't confirm the flush.
  */
 object SarvamStream : StreamProtocol {
     override val service = SpeechService.SARVAM
@@ -268,6 +319,7 @@ object SarvamStream : StreamProtocol {
             "sample_rate" to "16000",
             "input_audio_codec" to "pcm_s16le",
             "flush_signal" to "true",
+            "vad_signals" to "true",
         )
         if (config.vocabularyHints && "v4" in config.model) {
             val terms = hintTerms(request.vocabulary, max = 50, maxLength = 64)
@@ -289,7 +341,7 @@ object SarvamStream : StreamProtocol {
         socket.send(message.toString())
     }
 
-    override fun apply(message: String, pieces: MutableList<String>, endSent: Boolean): Boolean {
+    override fun apply(message: String, pieces: MutableList<String>, endSent: Boolean, progress: StreamProgress): Boolean {
         val root = try {
             ApiJson.parse(message) as? JsonObject
         } catch (_: Exception) {
@@ -297,14 +349,21 @@ object SarvamStream : StreamProtocol {
         } ?: return false
         val data = root["data"] as? JsonObject
         when (root.str("type")) {
-            "data" -> data.str("transcript")?.let { if (it.isNotBlank()) pieces.add(it) }
+            "data" -> {
+                data.str("transcript")?.let { if (it.isNotBlank()) pieces.add(it) }
+                progress.transcribed(endSent)
+            }
+            "events" -> when (data.str("signal_type")) {
+                "START_SPEECH" -> progress.speechStarted()
+                "END_SPEECH" -> progress.speechEnded()
+            }
             "error" -> {
                 val text = "${data.str("code").orEmpty()} ${data.str("error").orEmpty()}"
                 throw TranscriptionException(StreamErrors.kindFor(text), "live sarvam: ${Redactor.clean(text, 200)}", service = service)
             }
         }
 
-        return false // Sarvam doesn't confirm the flush; the session stops once it goes quiet
+        return false // Sarvam doesn't confirm the flush; the session stops once no transcript is owed
     }
 }
 
@@ -331,7 +390,7 @@ object DeepgramStream : StreamProtocol {
 
     override suspend fun sendAudio(socket: LiveSocket, pcm: ByteArray) = socket.sendBinary(pcm)
 
-    override fun apply(message: String, pieces: MutableList<String>, endSent: Boolean): Boolean {
+    override fun apply(message: String, pieces: MutableList<String>, endSent: Boolean, progress: StreamProgress): Boolean {
         val root = try {
             ApiJson.parse(message) as? JsonObject
         } catch (_: Exception) {

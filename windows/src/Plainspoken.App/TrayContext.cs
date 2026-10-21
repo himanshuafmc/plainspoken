@@ -1,3 +1,4 @@
+using System.Collections.Concurrent;
 using System.Net;
 using Plainspoken.App.Audio;
 using Plainspoken.App.Platform;
@@ -16,20 +17,28 @@ internal interface ISettingsHost
 {
     PlainspokenSettings CurrentSettings { get; }
 
-    string? ApiKey { get; }
-
     HttpClient Http { get; }
 
     ILog Log { get; }
 
-    /// <summary>Saves settings (and the key, if given). Returns false with a message if the hotkey can't be registered.</summary>
-    bool TryApply(PlainspokenSettings updated, string? newApiKey, out string? error);
+    /// <summary>The saved key of a key slot (see <see cref="SpeechServices.KeySlot"/>), or null.</summary>
+    string? KeyFor(string slot);
+
+    /// <summary>
+    /// Saves settings and the keys given (by key slot; an empty key removes it). Returns false with a message if the
+    /// hotkey can't be registered.
+    /// </summary>
+    bool TryApply(PlainspokenSettings updated, IReadOnlyDictionary<string, string>? newKeys, out string? error);
 
     void SuspendHotkey();
 
     void ResumeHotkey();
 
     void ClearHistory();
+
+    void ShowStats();
+
+    void ShowSettingsWindow();
 }
 
 /// <summary>Owns the tray icon, hotkeys, overlay and the dictation controller; the app's lifetime.</summary>
@@ -50,9 +59,21 @@ internal sealed class TrayContext : ApplicationContext, IDictationView, ISetting
     private readonly NotifyIcon _tray;
     private readonly ContextMenuStrip _menu;
     private readonly DictationController _controller;
+    private readonly TranscriptionService _transcriber;
+    private readonly StatsStore _stats;
+    private readonly KeyboardHook _keyboard;
+    private readonly HoldToTalk _hold = new();
+    private readonly System.Windows.Forms.Timer _holdTimer = new() { Interval = 40 };
+    private readonly CorrectionWatch _corrections = new();
+    private readonly ConcurrentDictionary<string, string?> _keyCache = new(StringComparer.Ordinal);
+    private Task _holdStart = Task.CompletedTask;
+    private bool _heldRecording;
+    private (IReadOnlyList<string> Words, DateTimeOffset At)? _offer;
+    private IReadOnlyList<string>? _offerShown;
     private PlainspokenSettings _settings;
     private SettingsForm? _settingsForm;
     private FirstRunForm? _firstRunForm;
+    private StatsForm? _statsForm;
     private UserAction _balloonAction;
     private bool _hotkeyOk;
     private bool _exiting;
@@ -87,11 +108,33 @@ internal sealed class TrayContext : ApplicationContext, IDictationView, ISetting
         _sounds = new Sounds();
         _icons = new TrayIcons();
 
-        var transcriber = new TranscriptionService(TranscriptionService.GeminiEngines(_http, () => ApiKey, log), log,
-            warmUp: TranscriptionService.GeminiWarmUp(_http, () => ApiKey, log));
-        var live = new GeminiLiveTranscriber(() => new WebSocketLiveSocket(), () => ApiKey, log);
-        _controller = new DictationController(() => _settings, () => !string.IsNullOrEmpty(ApiKey), _recorder, transcriber,
+        _stats = new StatsStore(AppPaths.StatsFile, log);
+        string? ServiceKey(SpeechService s) => KeyFor(s.KeySlot());
+        _transcriber = new TranscriptionService(
+            TranscriptionService.Engines(_http, ServiceKey, log),
+            s => ServiceKey(s) is not null,
+            log,
+            CleanerFactory.Standard(_http, () => KeyFor(SpeechServices.GeminiKey), () => KeyFor(SpeechServices.CleanupKey), log),
+            _stats,
+            new AacCompressor(),
+            TranscriptionService.StandardWarmUp(_http, ServiceKey, log));
+        var live = new LiveRouter(
+            new Dictionary<SpeechService, ILiveTranscriber>
+            {
+                [SpeechService.Gemini] = new GeminiLiveTranscriber(() => new WebSocketLiveSocket(), () => KeyFor(SpeechServices.GeminiKey), log),
+                [SpeechService.Sarvam] = new StreamingTranscriber(SarvamStreaming.Instance, () => new WebSocketLiveSocket(), ServiceKey, log),
+                [SpeechService.Deepgram] = new StreamingTranscriber(DeepgramStreaming.Instance, () => new WebSocketLiveSocket(), ServiceKey, log),
+            },
+            s => _transcriber.UsableServices(s) is [var first, ..] ? first : null);
+        _controller = new DictationController(() => _settings, () => _transcriber.UsableServices(_settings).Count > 0, _recorder, _transcriber,
             _inserter, this, _sounds, _history, _pending, log, liveTranscriber: live);
+        _controller.Inserted += (_, text) =>
+        {
+            if (_settings.Local.LearnFromCorrections)
+            {
+                _corrections.Inserted(text, AppKey(NativeMethods.GetForegroundWindow()));
+            }
+        };
 
         _overlay = new OverlayForm(() => _controller.Elapsed, () => _controller.Level, () => HotkeyKeys.Display(_settings.Hotkey))
         {
@@ -99,6 +142,7 @@ internal sealed class TrayContext : ApplicationContext, IDictationView, ISetting
             CustomAnchor = ParseAnchor(_settings.Local.MiniButtonPosition),
         };
         _overlay.DoneClicked += (_, _) => Fire(_controller.ToggleAsync);
+        _overlay.OfferClicked += (_, _) => AcceptOffer();
         _overlay.MiniClicked += (_, _) => OnMiniClicked();
         _overlay.MiniMenuRequested += (_, point) => ShowMiniMenu(point);
         _overlay.AnchorChanged += (_, point) => SaveAnchor(point);
@@ -117,6 +161,20 @@ internal sealed class TrayContext : ApplicationContext, IDictationView, ISetting
 
         _hotkeys = new HotkeyWindow();
         _hotkeys.Pressed += OnHotkey;
+        _keyboard = new KeyboardHook();
+        _keyboard.KeyChanged += (_, e) =>
+        {
+            // On the hook's own thread: hand the key to the UI thread and return at once.
+            if (!_exiting && _overlay.IsHandleCreated)
+            {
+                _overlay.BeginInvoke(() => OnKey(e));
+            }
+        };
+        _holdTimer.Tick += (_, _) => PollHold();
+        if (_keyboard.Error != 0)
+        {
+            log.Warn($"hold-to-talk unavailable: keyboard hook error {_keyboard.Error}");
+        }
 
         _menu = new ContextMenuStrip();
         _menu.Opening += (_, _) => BuildMenu();
@@ -145,8 +203,6 @@ internal sealed class TrayContext : ApplicationContext, IDictationView, ISetting
     }
 
     public PlainspokenSettings CurrentSettings => SettingsSerializer.Clone(_settings);
-
-    public string? ApiKey => ApiKeyProtector.Unprotect(_settings.Local.ApiKeyProtected);
 
     public HttpClient Http => _http;
 
@@ -189,15 +245,37 @@ internal sealed class TrayContext : ApplicationContext, IDictationView, ISetting
 
     // ---- ISettingsHost ------------------------------------------------------------------
 
-    public bool TryApply(PlainspokenSettings updated, string? newApiKey, out string? error)
+    public string? KeyFor(string slot) => _keyCache.GetOrAdd(slot, s => KeyVault.Get(_settings, s));
+
+    public void ShowSettingsWindow() => ShowSettings();
+
+    public void ShowStats()
+    {
+        if (_statsForm is { IsDisposed: false })
+        {
+            _statsForm.Activate();
+            return;
+        }
+
+        _statsForm = new StatsForm(_stats, () => _settings);
+        _statsForm.FormClosed += (_, _) => _statsForm = null;
+        _statsForm.Show();
+        _statsForm.Activate();
+    }
+
+    public bool TryApply(PlainspokenSettings updated, IReadOnlyDictionary<string, string>? newKeys, out string? error)
     {
         ArgumentNullException.ThrowIfNull(updated);
         error = null;
         updated.Normalize();
         var previous = _settings;
-        if (newApiKey is not null)
+        foreach (var (slot, key) in newKeys ?? new Dictionary<string, string>())
         {
-            updated.Local.ApiKeyProtected = ApiKeyProtector.Protect(newApiKey);
+            KeyVault.Set(updated, slot, key);
+            foreach (var service in SpeechServices.All.Where(s => s.KeySlot() == slot))
+            {
+                _transcriber.Health.Reset(service); // a new key deserves a fresh start
+            }
         }
 
         if (updated.Local.MiniButtonPosition is not null)
@@ -208,13 +286,21 @@ internal sealed class TrayContext : ApplicationContext, IDictationView, ISetting
 
         var hotkeyChanged = !string.Equals(previous.Hotkey, updated.Hotkey, StringComparison.Ordinal);
         _settings = updated;
+        _keyCache.Clear();
         if (!RegisterMainHotkey(showErrors: false, out var hotkeyError) && hotkeyChanged)
         {
             // Keep the old, working hotkey and let the user pick another one.
             _settings = previous;
+            _keyCache.Clear();
             RegisterMainHotkey(showErrors: false);
             error = hotkeyError;
             return false;
+        }
+
+        _hold.Reset();
+        if (!_settings.Local.LearnFromCorrections)
+        {
+            _corrections.Forget();
         }
 
         _settingsStore.Save(_settings);
@@ -261,7 +347,9 @@ internal sealed class TrayContext : ApplicationContext, IDictationView, ISetting
 
         if (state == DictationState.Idle)
         {
+            _heldRecording = false;
             _overlay.EndBusy();
+            ShowOfferIfReady();
         }
 
         UpdateTray(state);
@@ -311,6 +399,8 @@ internal sealed class TrayContext : ApplicationContext, IDictationView, ISetting
         _log.Info("exiting");
         _tray.Visible = false;
         _hotkeys.Dispose(); // unregisters every hotkey
+        _keyboard.Dispose();
+        _holdTimer.Stop();
         if (_recorder.IsRecording)
         {
             _ = _recorder.CancelAsync();
@@ -318,6 +408,7 @@ internal sealed class TrayContext : ApplicationContext, IDictationView, ISetting
 
         _settingsForm?.Close();
         _firstRunForm?.Close();
+        _statsForm?.Close();
         _overlay.HideCompletely();
         _overlay.Close();
         base.ExitThreadCore();
@@ -328,6 +419,8 @@ internal sealed class TrayContext : ApplicationContext, IDictationView, ISetting
         if (disposing)
         {
             _hotkeys.Dispose();
+            _keyboard.Dispose();
+            _holdTimer.Dispose();
             _recorder.Dispose();
             _foreground.Dispose();
             _tray.Dispose();
@@ -361,11 +454,22 @@ internal sealed class TrayContext : ApplicationContext, IDictationView, ISetting
             TaskContinuationOptions.OnlyOnFaulted, TaskScheduler.Default);
     }
 
+    /// <summary>Starts or stops dictation from the hotkey, tray, mini button or hold key.</summary>
+    private Task ToggleAsync()
+    {
+        if (_controller.State == DictationState.Idle)
+        {
+            LookForCorrections();
+        }
+
+        return _controller.ToggleAsync();
+    }
+
     private void OnHotkey(object? sender, int id)
     {
         if (id == HotkeyWindow.ToggleId)
         {
-            Fire(_controller.ToggleAsync);
+            Fire(ToggleAsync);
         }
         else if (id == HotkeyWindow.CancelId)
         {
@@ -383,7 +487,7 @@ internal sealed class TrayContext : ApplicationContext, IDictationView, ISetting
                 return;
             }
 
-            Fire(_controller.ToggleAsync);
+            Fire(ToggleAsync);
         }
     }
 
@@ -443,7 +547,7 @@ internal sealed class TrayContext : ApplicationContext, IDictationView, ISetting
         _menu.Items.Clear();
         var hotkey = HotkeyKeys.Display(_settings.Hotkey);
         var toggleText = _controller.State == DictationState.Recording ? "Stop dictation" : "Start dictation";
-        var toggle = new ToolStripMenuItem(toggleText, null, (_, _) => Fire(_controller.ToggleAsync))
+        var toggle = new ToolStripMenuItem(toggleText, null, (_, _) => Fire(ToggleAsync))
         {
             Enabled = _controller.State != DictationState.Transcribing,
             ShortcutKeyDisplayString = hotkey,
@@ -490,6 +594,7 @@ internal sealed class TrayContext : ApplicationContext, IDictationView, ISetting
             Checked = _settings.ShowMiniButton,
         });
         _menu.Items.Add("Settings…", null, (_, _) => ShowSettings());
+        _menu.Items.Add("Speed and cost…", null, (_, _) => ShowStats());
         _menu.Items.Add($"About {AppInfo.Name} {AppInfo.Version}", null, (_, _) => ShowAbout());
         _menu.Items.Add(new ToolStripSeparator());
         _menu.Items.Add("Exit", null, (_, _) => ExitThread());
@@ -499,7 +604,8 @@ internal sealed class TrayContext : ApplicationContext, IDictationView, ISetting
     private static void ShowAbout()
     {
         MessageBox.Show(
-            $"{AppInfo.Name} {AppInfo.Version}\n\nFree, open-source voice typing for English, Hindi and Hinglish, using Google Gemini.\n\n" +
+            $"{AppInfo.Name} {AppInfo.Version}\n\nFree, open-source voice typing for English, Hindi and Hinglish, using the speech service " +
+            "you choose: Google Gemini, Sarvam, any OpenAI-compatible service, Deepgram or ElevenLabs.\n\n" +
             $"Your data folder: {AppPaths.LocalDir}\n\n" +
             "This program is free software, licensed under the GNU General Public License v3.0. It comes with ABSOLUTELY NO WARRANTY.\n" +
             "Source code and help: https://github.com/himanshuafmc/plainspoken",
@@ -550,7 +656,7 @@ internal sealed class TrayContext : ApplicationContext, IDictationView, ISetting
             return;
         }
 
-        Fire(_controller.ToggleAsync);
+        Fire(ToggleAsync);
     }
 
     private void ShowMiniMenu(Point screenPoint)
@@ -603,6 +709,158 @@ internal sealed class TrayContext : ApplicationContext, IDictationView, ISetting
                int.TryParse(parts[1], System.Globalization.NumberStyles.Integer, System.Globalization.CultureInfo.InvariantCulture, out var y)
             ? new Point(x, y)
             : null;
+    }
+
+    // ---- hold to talk ---------------------------------------------------------------------
+
+    private static int HoldVirtualKey(HoldKey key) => key switch
+    {
+        HoldKey.RightCtrl => NativeMethods.VK_RCONTROL,
+        HoldKey.RightAlt => NativeMethods.VK_RMENU,
+        HoldKey.RightShift => NativeMethods.VK_RSHIFT,
+        _ => 0,
+    };
+
+    /// <summary>Every key the hook saw, in order, on the UI thread.</summary>
+    private void OnKey(KeyChange e)
+    {
+        var holdKey = HoldVirtualKey(_settings.HoldKey);
+        if (holdKey == 0 || e.Injected)
+        {
+            return; // our own Ctrl+V paste and other programs' input never count
+        }
+
+        if (e.VirtualKey != holdKey)
+        {
+            if (e.Down)
+            {
+                _hold.OtherKeyDown();
+            }
+
+            return;
+        }
+
+        if (e.Down)
+        {
+            _hold.KeyDown(DateTimeOffset.UtcNow);
+            _holdTimer.Start();
+            return;
+        }
+
+        _holdTimer.Stop();
+        if (_hold.KeyUp(DateTimeOffset.UtcNow) == HoldAction.Stop && _heldRecording)
+        {
+            Fire(StopHeldAsync);
+        }
+    }
+
+    private void PollHold()
+    {
+        if (_hold.Poll(DateTimeOffset.UtcNow) != HoldAction.Start)
+        {
+            return;
+        }
+
+        _holdTimer.Stop();
+        _heldRecording = false;
+        if (_exiting || !_settings.Local.FirstRunCompleted || _controller.State != DictationState.Idle)
+        {
+            return; // a dictation started another way keeps going; letting go of the key won't stop it
+        }
+
+        _heldRecording = true;
+        _holdStart = ToggleAsync();
+        Fire(() => _holdStart);
+    }
+
+    private async Task StopHeldAsync()
+    {
+        await _holdStart.ConfigureAwait(true); // the microphone may still be starting
+        if (_heldRecording && _controller.State == DictationState.Recording)
+        {
+            await _controller.ToggleAsync().ConfigureAwait(true);
+        }
+    }
+
+    // ---- learning from corrections -------------------------------------------------------
+
+    private static string AppKey(IntPtr hwnd) =>
+        string.Create(System.Globalization.CultureInfo.InvariantCulture, $"{NativeMethods.ProcessIdOf(hwnd)}:{hwnd}");
+
+    /// <summary>
+    /// At the start of a dictation in the app that got the last one, reads its text box (UI Automation, on a background
+    /// thread) and looks for words the user corrected. Any finding is offered once this dictation is finished.
+    /// </summary>
+    private void LookForCorrections()
+    {
+        if (!_settings.Local.LearnFromCorrections)
+        {
+            return;
+        }
+
+        var inserted = _corrections.Take(AppKey(NativeMethods.GetForegroundWindow()));
+        if (inserted is null)
+        {
+            return;
+        }
+
+        var vocabulary = _settings.Transcription.CustomVocabulary.ToList();
+        _ = Task.Run(() =>
+        {
+            try
+            {
+                var text = TextBoxReader.ReadFocused(TimeSpan.FromSeconds(2));
+                var around = text is null ? null : CorrectionLearner.Around(inserted, text);
+                var words = around is null ? [] : CorrectionLearner.Candidates(inserted, around, vocabulary);
+                if (words.Count > 0)
+                {
+                    _log.Info($"learning: {words.Count} corrected word(s) found");
+                    _overlay.BeginInvoke(() =>
+                    {
+                        _offer = (words, DateTimeOffset.UtcNow);
+                        ShowOfferIfReady();
+                    });
+                }
+            }
+            catch (Exception ex)
+            {
+                _log.Warn($"learning: skipped ({ex.GetType().Name})");
+            }
+        });
+    }
+
+    private void ShowOfferIfReady()
+    {
+        if (_offer is not { } offer || _controller.State != DictationState.Idle || _overlay.Mode is not (PillMode.Mini or PillMode.Hidden))
+        {
+            return;
+        }
+
+        if (DateTimeOffset.UtcNow - offer.At > CorrectionWatch.Window)
+        {
+            _offer = null;
+            return;
+        }
+
+        // Offered once: if the pill times out unclicked, the words are not offered again.
+        _offer = null;
+        _offerShown = offer.Words;
+        var list = string.Join(", ", offer.Words.Select(w => $"“{w}”"));
+        _overlay.ShowOffer($"Add {list} to your vocabulary? Click to add.");
+    }
+
+    private void AcceptOffer()
+    {
+        if (_offerShown is not { } words)
+        {
+            return;
+        }
+
+        _offerShown = null;
+        _settings.Transcription.CustomVocabulary = VocabularyCleaner.Clean(_settings.Transcription.CustomVocabulary.Concat(words));
+        _settingsStore.Save(_settings);
+        _log.Info($"learning: {words.Count} word(s) added to the vocabulary");
+        _overlay.ShowNote("Added to your vocabulary");
     }
 
     private void RunAction(UserAction action)

@@ -74,6 +74,16 @@ class DictationControllerTests {
     }
 
     @Test
+    fun `silence around the speech is left out of the normal request`() = runTest {
+        val c = controller()
+        recorder.audio = ShortArray(16000 * 2) + speech(1.0) + ShortArray(16000 * 3)
+        c.toggle()
+        c.toggle()
+        assertTrue(transcriber.lastSeconds in 1.4..1.6, "sent ${transcriber.lastSeconds} s")
+        assertEquals(1, inserter.inserted.size)
+    }
+
+    @Test
     fun `short or silent clips are not sent`() = runTest {
         val c = controller()
         recorder.audio = speech(0.3)
@@ -283,9 +293,11 @@ class DictationControllerTests {
         var gate: CompletableDeferred<Unit>? = null
         var calls = 0
         var warmUps = 0
+        var lastSeconds = 0.0
 
         override suspend fun transcribe(request: TranscriptionRequest, settings: PlainspokenSettings, status: ((String) -> Unit)?): TranscriptionOutcome {
             calls++
+            lastSeconds = request.durationSeconds
             gate?.await()
             error?.let { throw it }
             return TranscriptionOutcome(result, SpeechService.GEMINI)

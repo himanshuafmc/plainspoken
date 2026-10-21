@@ -403,6 +403,17 @@
       "description": "Windows only. Modifiers (Ctrl, Alt, Shift, Win) and one key joined with '+'.",
       "default": "Ctrl+Alt+Space"
     },
+    "holdKey": {
+      "type": "string",
+      "enum": [
+        "off",
+        "rightCtrl",
+        "rightAlt",
+        "rightShift"
+      ],
+      "default": "rightCtrl",
+      "description": "Windows: record while this key is held down on its own (the hotkey still toggles)."
+    },
     "snippets": {
       "type": "array",
       "maxItems": 100,

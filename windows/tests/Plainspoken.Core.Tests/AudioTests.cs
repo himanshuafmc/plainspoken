@@ -215,6 +215,19 @@ public class ClipAnalyzerTests
         Noise(0.2, 0.05).CopyTo(samples, 16000); // 200 ms of speech-level sound
         Assert.Equal(ClipVerdict.Ok, ClipAnalyzer.Analyze(samples));
     }
+
+    [Fact]
+    public void Silence_before_and_after_speech_is_trimmed_keeping_a_margin_and_the_pauses()
+    {
+        short[] clip = [.. new short[16000 * 2], .. Noise(1.0, 0.1), .. new short[16000 * 3]];
+        Assert.InRange(ClipAnalyzer.TrimSilence(clip).Length, (1.5 - 0.04) * 16000, (1.5 + 0.04) * 16000);
+        short[] paused = [.. Noise(1.0, 0.1), .. new short[16000 * 2], .. Noise(1.0, 0.1, seed: 2)];
+        Assert.Same(paused, ClipAnalyzer.TrimSilence(paused)); // nothing to trim at the edges
+        var silent = new short[16000 * 2];
+        Assert.Same(silent, ClipAnalyzer.TrimSilence(silent));
+        short[] blip = [.. new short[16000 * 2], .. Noise(0.03, 0.1), .. new short[16000 * 2]];
+        Assert.Same(blip, ClipAnalyzer.TrimSilence(blip)); // what's left would be under 0.6 s
+    }
 }
 
 public class ToneGeneratorTests

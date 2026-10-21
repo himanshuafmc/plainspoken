@@ -58,7 +58,10 @@ public static class SettingsSerializer
     }
 }
 
-/// <summary>Enums as camelCase strings; unknown values become the enum's default (first) member.</summary>
+/// <summary>
+/// Enums as camelCase strings (or the name in <see cref="JsonStringEnumMemberNameAttribute"/>); unknown values become
+/// the enum's default (first) member.
+/// </summary>
 internal sealed class TolerantEnumConverterFactory : JsonConverterFactory
 {
     public override bool CanConvert(Type typeToConvert) => typeToConvert.IsEnum;
@@ -89,7 +92,8 @@ internal sealed class TolerantEnumConverterFactory : JsonConverterFactory
         public override void Write(Utf8JsonWriter writer, T value, JsonSerializerOptions options)
         {
             var name = value.ToString();
-            writer.WriteStringValue(char.ToLowerInvariant(name[0]) + name[1..]);
+            var custom = typeof(T).GetField(name)?.GetCustomAttributes(typeof(JsonStringEnumMemberNameAttribute), false);
+            writer.WriteStringValue(custom is [JsonStringEnumMemberNameAttribute a, ..] ? a.Name : char.ToLowerInvariant(name[0]) + name[1..]);
         }
     }
 }
