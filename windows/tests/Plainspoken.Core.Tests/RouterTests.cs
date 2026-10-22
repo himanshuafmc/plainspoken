@@ -61,7 +61,7 @@ public class RouterTests
         new(WavEncoder.Encode(TestAudio.Speech(Math.Max(seconds, 0.1))), seconds, mode, LanguagePreset.EnglishHindi, ["WhatsApp"]);
 
     private TranscriptionService Router(Dictionary<SpeechService, Script> scripts, IEnumerable<SpeechService>? keys = null, ITextCleaner? cleaner = null,
-        IAudioCompressor? compressor = null, ServiceHealth? health = null)
+        IAudioCompressor? compressor = null, ServiceHealth? health = null, IOfflineTranscriber? offline = null, bool online = true)
     {
         var withKeys = (keys ?? scripts.Keys).ToHashSet();
         return new TranscriptionService(
@@ -71,7 +71,77 @@ public class RouterTests
             cleaner is null ? null : _ => cleaner,
             _stats,
             compressor,
-            health: health);
+            health: health,
+            offline: offline,
+            isOnline: () => online)
+        {
+            OfflineAfter = TimeSpan.FromMilliseconds(150),
+        };
+    }
+
+    private sealed class FakeOffline(string text = "um offline words here", bool ready = true, int delayMs = 0) : IOfflineTranscriber
+    {
+        public int Calls { get; private set; }
+
+        public bool IsReady(PlainspokenSettings settings) => ready;
+
+        public async Task<string> TranscribeAsync(TranscriptionRequest request, CancellationToken ct)
+        {
+            Calls++;
+            if (delayMs > 0)
+            {
+                await Task.Delay(delayMs, ct);
+            }
+
+            return text;
+        }
+    }
+
+    [Fact]
+    public async Task Offline_is_used_at_once_without_a_usable_service_or_internet()
+    {
+        var offline = new FakeOffline();
+        var noKeys = Router(new() { [SpeechService.Sarvam] = new Script("Sarvam text.") }, keys: [], offline: offline);
+        var outcome = await noKeys.TranscribeAsync(Request(), Settings(SpeechService.Sarvam), null, default);
+        Assert.True(outcome.Offline);
+        Assert.Equal("Offline words here", outcome.Text.Trim(), ignoreCase: true);
+
+        var noInternet = Router(new() { [SpeechService.Sarvam] = new Script("Sarvam text.") }, offline: offline, online: false);
+        Assert.True((await noInternet.TranscribeAsync(Request(), Settings(SpeechService.Sarvam), null, default)).Offline);
+        Assert.Empty(_calls);
+        Assert.Equal(2, offline.Calls);
+        Assert.Empty(_stats.Items); // offline text isn't counted against a service
+    }
+
+    [Fact]
+    public async Task Offline_takes_over_when_every_service_fails_or_none_answers_in_time()
+    {
+        var failing = Router(new() { [SpeechService.Sarvam] = new Script(Error: TranscriptionErrorKind.Network) }, offline: new FakeOffline());
+        Assert.True((await failing.TranscribeAsync(Request(), Settings(SpeechService.Sarvam), null, default)).Offline);
+
+        var slow = Router(new() { [SpeechService.Sarvam] = new Script("Late.", DelayMs: 3000) }, offline: new FakeOffline());
+        var watch = System.Diagnostics.Stopwatch.StartNew();
+        Assert.True((await slow.TranscribeAsync(Request(), Settings(SpeechService.Sarvam), null, default)).Offline);
+        Assert.True(watch.ElapsedMilliseconds < 2000, $"waited {watch.ElapsedMilliseconds} ms");
+    }
+
+    [Fact]
+    public async Task A_service_that_answers_in_time_wins_and_offline_never_runs()
+    {
+        var offline = new FakeOffline();
+        var router = Router(new() { [SpeechService.Sarvam] = new Script("Sarvam text.") }, offline: offline);
+        var outcome = await router.TranscribeAsync(Request(), Settings(SpeechService.Sarvam), null, default);
+        Assert.False(outcome.Offline);
+        Assert.Equal("Sarvam text.", outcome.Text);
+        Assert.Equal(0, offline.Calls);
+    }
+
+    [Fact]
+    public async Task Without_a_ready_offline_model_nothing_changes()
+    {
+        var router = Router(new() { [SpeechService.Sarvam] = new Script("x") }, keys: [], offline: new FakeOffline(ready: false));
+        var e = await Assert.ThrowsAsync<TranscriptionException>(() => router.TranscribeAsync(Request(), Settings(SpeechService.Sarvam), null, default));
+        Assert.Equal(TranscriptionErrorKind.NoKey, e.Kind);
     }
 
     private sealed class SyncProgress(List<string> sink) : IProgress<string>
