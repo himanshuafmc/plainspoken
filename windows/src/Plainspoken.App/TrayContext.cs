@@ -6,6 +6,7 @@ using Plainspoken.App.UI;
 using Plainspoken.Core;
 using Plainspoken.Core.Dictation;
 using Plainspoken.Core.Logging;
+using Plainspoken.Core.Offline;
 using Plainspoken.Core.Settings;
 using Plainspoken.Core.Storage;
 using Plainspoken.Core.Transcription;
@@ -18,6 +19,9 @@ internal interface ISettingsHost
     PlainspokenSettings CurrentSettings { get; }
 
     HttpClient Http { get; }
+
+    /// <summary>The offline Whisper models on this computer.</summary>
+    ModelStore Models { get; }
 
     ILog Log { get; }
 
@@ -61,6 +65,8 @@ internal sealed class TrayContext : ApplicationContext, IDictationView, ISetting
     private readonly DictationController _controller;
     private readonly TranscriptionService _transcriber;
     private readonly StatsStore _stats;
+    private readonly ModelStore _models;
+    private readonly WhisperOffline _offline;
     private readonly KeyboardHook _keyboard;
     private readonly HoldToTalk _hold = new();
     private readonly System.Windows.Forms.Timer _holdTimer = new() { Interval = 40 };
@@ -109,6 +115,8 @@ internal sealed class TrayContext : ApplicationContext, IDictationView, ISetting
         _icons = new TrayIcons();
 
         _stats = new StatsStore(AppPaths.StatsFile, log);
+        _models = new ModelStore(AppPaths.ModelsDir, _http, log);
+        _offline = new WhisperOffline(_models, () => _settings, log);
         string? ServiceKey(SpeechService s) => KeyFor(s.KeySlot());
         _transcriber = new TranscriptionService(
             TranscriptionService.Engines(_http, ServiceKey, log),
@@ -117,7 +125,9 @@ internal sealed class TrayContext : ApplicationContext, IDictationView, ISetting
             CleanerFactory.Standard(_http, () => KeyFor(SpeechServices.GeminiKey), () => KeyFor(SpeechServices.CleanupKey), log),
             _stats,
             new AacCompressor(),
-            TranscriptionService.StandardWarmUp(_http, ServiceKey, log));
+            TranscriptionService.StandardWarmUp(_http, ServiceKey, log),
+            offline: _offline,
+            isOnline: System.Net.NetworkInformation.NetworkInterface.GetIsNetworkAvailable);
         var live = new LiveRouter(
             new Dictionary<SpeechService, ILiveTranscriber>
             {
@@ -126,7 +136,8 @@ internal sealed class TrayContext : ApplicationContext, IDictationView, ISetting
                 [SpeechService.Deepgram] = new StreamingTranscriber(DeepgramStreaming.Instance, () => new WebSocketLiveSocket(), ServiceKey, log),
             },
             s => _transcriber.UsableServices(s) is [var first, ..] ? first : null);
-        _controller = new DictationController(() => _settings, () => _transcriber.UsableServices(_settings).Count > 0, _recorder, _transcriber,
+        _controller = new DictationController(() => _settings,
+            () => _transcriber.UsableServices(_settings).Count > 0 || _offline.IsReady(_settings), _recorder, _transcriber,
             _inserter, this, _sounds, _history, _pending, log, liveTranscriber: live);
         _controller.Inserted += (_, text) =>
         {
@@ -205,6 +216,8 @@ internal sealed class TrayContext : ApplicationContext, IDictationView, ISetting
     public PlainspokenSettings CurrentSettings => SettingsSerializer.Clone(_settings);
 
     public HttpClient Http => _http;
+
+    public ModelStore Models => _models;
 
     public ILog Log => _log;
 
@@ -428,6 +441,7 @@ internal sealed class TrayContext : ApplicationContext, IDictationView, ISetting
             _icons.Dispose();
             _sounds.Dispose();
             _overlay.Dispose();
+            _offline.Dispose();
             _http.Dispose();
         }
 
@@ -572,7 +586,7 @@ internal sealed class TrayContext : ApplicationContext, IDictationView, ISetting
         {
             foreach (var entry in entries)
             {
-                var label = entry.Text.ReplaceLineEndings(" ");
+                var label = (entry.Offline ? "(offline) " : "") + entry.Text.ReplaceLineEndings(" ");
                 label = label.Length > 60 ? label[..57] + "…" : label;
                 var text = entry.Text;
                 recent.DropDownItems.Add(new ToolStripMenuItem(label.Replace("&", "&&", StringComparison.Ordinal), null,

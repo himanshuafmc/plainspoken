@@ -54,6 +54,15 @@ public static class OfflineWhisper
 
     /// <summary>The same prompt as for OpenAI-compatible Whisper services: the wanted script, then names to spell right.</summary>
     public static string Prompt(TranscriptionRequest request) => OpenAIEngine.Prompt(request, new SpeechServiceSettings());
+
+    /// <summary>Whisper's text without its notes for non-speech ("[BLANK_AUDIO]", "[Music]") and extra spaces.</summary>
+    public static string Tidy(string text)
+    {
+        ArgumentNullException.ThrowIfNull(text);
+        var cleaned = System.Text.RegularExpressions.Regex.Replace(text, @"\[[^\]\n]{1,40}\]", " ", System.Text.RegularExpressions.RegexOptions.None,
+            TimeSpan.FromSeconds(1));
+        return string.Join(' ', cleaned.Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries));
+    }
 }
 
 /// <summary>Downloaded models in a folder: download (resuming a partial one, checked against the SHA-256), delete, find.</summary>

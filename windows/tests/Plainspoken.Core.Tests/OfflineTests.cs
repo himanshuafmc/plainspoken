@@ -77,6 +77,7 @@ public sealed class OfflineTests : IDisposable
         Assert.Equal("auto", OfflineWhisper.Language(Request(LanguagePreset.EnglishHindi)));
         Assert.Contains("Kal meeting hai", OfflineWhisper.Prompt(Request(LanguagePreset.EnglishHindi)), StringComparison.Ordinal);
         Assert.Contains("WhatsApp", OfflineWhisper.Prompt(Request(LanguagePreset.EnglishHindi)), StringComparison.Ordinal);
+        Assert.Equal("Kal milte hain.", OfflineWhisper.Tidy(" [BLANK_AUDIO]  Kal milte   hain. [Music]"));
         Assert.Equal(OfflineModels.Small, OfflineModels.Find(null, OfflineModels.Phone));
         Assert.Equal(OfflineModels.Medium, OfflineModels.Find("nope", OfflineModels.Pc));
     }

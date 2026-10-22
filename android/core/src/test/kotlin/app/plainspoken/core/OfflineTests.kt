@@ -77,6 +77,7 @@ class OfflineTests {
         assertEquals("auto", OfflineWhisper.language(request(LanguagePreset.ENGLISH_HINDI)))
         assertTrue("Kal meeting hai" in OfflineWhisper.prompt(request(LanguagePreset.ENGLISH_HINDI)))
         assertTrue("WhatsApp" in OfflineWhisper.prompt(request(LanguagePreset.ENGLISH_HINDI)))
+        assertEquals("Kal milte hain.", OfflineWhisper.tidy(" [BLANK_AUDIO]  Kal milte   hain. [Music]"))
         assertEquals(OfflineModels.SMALL, OfflineModels.find(null, OfflineModels.phone))
         assertEquals(OfflineModels.MEDIUM, OfflineModels.find("nope", OfflineModels.pc))
     }

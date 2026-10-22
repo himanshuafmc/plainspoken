@@ -287,4 +287,10 @@ public sealed class LocalSettings
     /// vocabulary. The text is only compared in memory, never stored or sent anywhere.
     /// </summary>
     public bool LearnFromCorrections { get; set; } = true;
+
+    /// <summary>Transcribe on this device when there's no internet, no usable service or none answers in time.</summary>
+    public bool OfflineEnabled { get; set; } = true;
+
+    /// <summary>The offline model's id (see <see cref="Offline.OfflineModels"/>); null = this platform's default.</summary>
+    public string? OfflineModel { get; set; }
 }

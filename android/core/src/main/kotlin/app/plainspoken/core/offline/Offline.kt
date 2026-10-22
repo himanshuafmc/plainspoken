@@ -53,6 +53,12 @@ object OfflineWhisper {
 
     /** The same prompt as for OpenAI-compatible Whisper services: the wanted script, then names to spell right. */
     fun prompt(request: TranscriptionRequest): String = OpenAiEngine.prompt(request, SpeechServiceSettings())
+
+    private val notes = Regex("\\[[^\\]\\n]{1,40}]")
+    private val spaces = Regex("\\s+")
+
+    /** Whisper's text without its notes for non-speech ("[BLANK_AUDIO]", "[Music]") and extra spaces. */
+    fun tidy(text: String): String = spaces.replace(notes.replace(text, " "), " ").trim()
 }
 
 /** Downloaded models in [dir]: download (resuming a partial one, checked against the SHA-256), delete, find. */
