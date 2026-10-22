@@ -30,12 +30,11 @@ class OfflineModel(val id: String, val file: String, val label: String, val size
 object OfflineModels {
     const val BASE_URL = "https://huggingface.co/ggerganov/whisper.cpp/resolve/main/"
 
-    // Sizes and SHA-256s come from whisper.cpp's Hugging Face listing, printed by CI (job "offline-models").
-    // A model without them can't be downloaded.
-    val BASE = OfflineModel("base", "ggml-base-q5_1.bin", "Base · about 60 MB · fastest", 0, "")
-    val SMALL = OfflineModel("small", "ggml-small-q5_1.bin", "Small · about 190 MB · more accurate", 0, "")
-    val MEDIUM = OfflineModel("medium", "ggml-medium-q5_0.bin", "Medium · about 515 MB · accurate", 0, "")
-    val LARGE_TURBO = OfflineModel("large-v3-turbo", "ggml-large-v3-turbo-q5_0.bin", "Large v3 Turbo · about 550 MB · most accurate", 0, "")
+    // Sizes and SHA-256s from whisper.cpp's Hugging Face listing; CI (job "offline-models") checks they still match.
+    val BASE = OfflineModel("base", "ggml-base-q5_1.bin", "Base · about 60 MB · fastest", 59_707_625, "422f1ae452ade6f30a004d7e5c6a43195e4433bc370bf23fac9cc591f01a8898")
+    val SMALL = OfflineModel("small", "ggml-small-q5_1.bin", "Small · about 190 MB · more accurate", 190_085_487, "ae85e4a935d7a567bd102fe55afc16bb595bdb618e11b2fc7591bc08120411bb")
+    val MEDIUM = OfflineModel("medium", "ggml-medium-q5_0.bin", "Medium · about 540 MB · accurate", 539_212_467, "19fea4b380c3a618ec4723c3eef2eb785ffba0d0538cf43f8f235e7b3b34220f")
+    val LARGE_TURBO = OfflineModel("large-v3-turbo", "ggml-large-v3-turbo-q5_0.bin", "Large v3 Turbo · about 575 MB · most accurate", 574_041_195, "394221709cd5ad1f40c46e6031ca61bce88931e6e088c188294c6d5a55ffa7e2")
 
     /** On phones; the first is the default. */
     val phone = listOf(SMALL, BASE)
