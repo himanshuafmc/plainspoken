@@ -314,7 +314,7 @@ the Gemini key and opens Settings, for people with a key for another service (§
 
 ## 9. Privacy
 
-No telemetry, analytics or servers of our own. The only network calls go to the configured speech and clean-up service addresses (the Gemini base URL by default). Each key is sent only to its own service's host. Logs hold timings, sizes, status codes and sanitised error shapes only.
+No telemetry, analytics or servers of our own. The only network calls go to the configured speech and clean-up service addresses (the Gemini base URL by default), and, when the user downloads an offline model, to whisper.cpp's Hugging Face page. Offline transcription stays on the device. Each key is sent only to its own service's host. Logs hold timings, sizes, status codes and sanitised error shapes only.
 
 ## 10. Android [Android]
 
@@ -422,3 +422,26 @@ identical on both).
   service, `useBackupEngineWhenLimited` adds the other; a general model still at the old default
   `gemini-3.5-flash-lite` moves to `gemini-3.5-flash`. `engine` and `useBackupEngineWhenLimited` are kept in step with
   the order, so older versions read a new file sensibly. Android keeps the Windows-only `holdKey` for round trips.
+
+### 10.2 Offline fallback [both apps, 0.6.0]
+
+- **When.** The router (`TranscriptionService`) uses the device's `OfflineTranscriber` only when it is ready (switched
+  on in local settings `offlineEnabled`, model downloaded, engine loads): at once with no network (Android:
+  `NET_CAPABILITY_INTERNET` on the active network; Windows: `NetworkInterface.GetIsNetworkAvailable`) or no usable
+  service; at once when every service has failed; and alongside the services once `offlineAfter` (6 s) has passed with
+  no text, the first text winning (a service that wins never waits for the model). If offline fails too, the services'
+  error stands. Streaming is unchanged; when a stream fails, the normal path above applies.
+- **Engine.** whisper.cpp v1.8.7. Windows: Whisper.net 1.9.1 with its CPU runtime; the native libraries ship in
+  `runtimes\win-x64` next to the exe. Android: built from source by CMake (`app/src/main/cpp`, pinned by commit) with a
+  JNI bridge; on arm64-v8a ggml builds a CPU backend per processor level (`GGML_CPU_ALL_VARIANTS`) and loads the best
+  one at run time; armeabi-v7a and x86_64 get one baseline build. Greedy decoding, no timestamps, language `en` for the
+  English preset and `auto` otherwise (forcing `en` would translate Hindi), and the same style prompt as
+  OpenAI-compatible services (wanted script, vocabulary). Whisper's notes such as `[BLANK_AUDIO]` are removed.
+- **Models.** whisper.cpp's ggml files from `huggingface.co/ggerganov/whisper.cpp`: base-q5_1, small-q5_1, medium-q5_0,
+  large-v3-turbo-q5_0, with size and SHA-256 pinned in both apps (CI job `offline-models` checks them against the
+  listing). Android offers small (default) and base; Windows medium (default), large-v3-turbo and small. Downloads
+  resume with `Range` into `<file>.part`, are hashed while they arrive and renamed only when size and SHA-256 match.
+  Local setting `offlineModel` holds the choice; neither field is exported.
+- **Text.** Offline text skips the clean-up service (only the local filler filter), isn't counted in Speed and cost,
+  shows "Typed offline" after insertion, and its History entry has `offline: true`. With the model ready, dictation
+  starts even with no key.

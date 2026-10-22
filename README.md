@@ -122,12 +122,23 @@ Windows: right-click the tray icon → **Settings…** · Android: open the Plai
 | Advanced | Request timeout, export/import, folders |
 | Export / import | Saves settings, vocabulary and snippets to a file — never your keys. A file from Windows imports on Android and the other way round. |
 
+## Offline fallback
+
+Plainspoken can transcribe on your own phone or PC when no speech service can help: no internet, no key, every service failing, or none answering within 6 seconds. Your services are always tried first.
+
+1. Open Settings → **Offline** (Windows) or Settings → **Offline fallback** (Android).
+2. Pick a model and tap **Download** — once, preferably on Wi-Fi. Windows: Medium (about 540 MB) by default, or Large v3 Turbo (about 575 MB) for the best accuracy. Android: Small (about 190 MB) by default, or Base (about 60 MB) if your phone is slow.
+3. That's it. When offline transcription is used you'll see "Typed offline".
+
+Offline text is less accurate than a cloud service, especially for Hinglish (Hindi may come out in Devanagari), and isn't tidied up. A short dictation takes a few seconds on a laptop, longer on a mid-range phone.
+
 ## Privacy
 
 - Audio goes **only** to the speech service you use — Google's Gemini API by default, or Sarvam, an OpenAI-compatible service, Deepgram or ElevenLabs if you set them up — using your own key. The raw text from those services goes to the clean-up service you chose (Gemini by default). Plainspoken has no servers, no analytics and no telemetry.
 - With **live streaming** (the default), audio is streamed to the service while you speak (Gemini, Sarvam and Deepgram can). If that fails, the recording is sent once more the normal way: short recordings travel inside the request and are never stored as files; long ones (over ~5 minutes) are uploaded and then **deleted straight after** transcription.
 - **On Google's free tier, Google may use your audio and text to improve its products.** Don't dictate official, confidential or classified information. (A paid Google key changes this — see Google's terms.)
 - Your keys are stored encrypted — Windows DPAPI on the PC, the Android Keystore on the phone — and are never written to logs or exported settings. The Android app is excluded from cloud backup.
+- **Offline transcription never leaves the device.** The only network use is downloading the model once from whisper.cpp's page on Hugging Face.
 - Everything else stays on the device: settings, the last 20 transcripts, unsent recordings, speed statistics and logs. Logs and statistics contain timings and error codes, never your words.
 - On Android the microphone is only used while you dictate, and voice typing is off in password boxes.
 - To learn your corrections, the Windows app reads the text box you dictated into once, at your next dictation there, on your computer; nothing is saved or sent. Password boxes are never read. Turn it off in Settings → Vocabulary.
@@ -158,7 +169,7 @@ Nothing you dictate is lost: if anything fails, the recording is kept until it's
 ## Known limitations
 
 - Google's free tier is small: a few requests a minute per model, and a daily cap (in September 2026 Google's own error message said 25 a day for the main speech model). When a limit is hit, or the service is slow, Plainspoken switches to your backup service by itself (by default the general Gemini model, gemini-3.5-flash).
-- Hindi output script (Roman or Devanagari) can vary.
+- Hindi output script (Roman or Devanagari) can vary — offline transcription especially tends to write Hindi in Devanagari.
 - Windows: text can't be typed into apps running **as Administrator** (a Windows security rule); Plainspoken copies it instead. The app isn't code-signed, so SmartScreen warns on first run.
 - Android: not on the Play Store yet, so updates are a new download from the Releases page, and the floating-mic edition needs Play Protect's scanning turned off while it installs (or a computer).
 - Android: the floating mic types through Android's accessibility interface. A few apps (some games, banking apps and custom editors) don't accept text that way; then the text is copied and you paste it, or use the Plainspoken keyboard.

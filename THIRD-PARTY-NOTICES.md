@@ -38,6 +38,35 @@ and contributors, MIT License. Their own third-party notices are published at
 https://github.com/dotnet/runtime/blob/main/THIRD-PARTY-NOTICES.TXT and
 https://github.com/dotnet/winforms/blob/main/THIRD-PARTY-NOTICES.TXT.
 
+## Whisper.net (Whisper.net and Whisper.net.Runtime 1.9.1)
+
+Offline transcription: a .NET wrapper around whisper.cpp, whose native libraries it ships (see "whisper.cpp and ggml"
+below). https://github.com/sandrohanea/whisper.net
+
+```
+MIT License
+
+Copyright (c) 2024 sandrohanea
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+```
+
 # Android app
 
 The Android APK bundles these libraries, all under the Apache License 2.0
@@ -50,9 +79,46 @@ The Android APK bundles these libraries, all under the Apache License 2.0
   Kotlin contributors. https://github.com/JetBrains/kotlin, https://github.com/Kotlin/kotlinx.coroutines,
   https://github.com/Kotlin/kotlinx.serialization
 
+It also bundles **whisper.cpp and ggml** (v1.8.7, MIT; see below) for offline transcription, and the **LLVM C++
+runtime** (`libc++_shared.so`, Apache License 2.0 with LLVM Exceptions, https://llvm.org/LICENSE.txt) they use.
+
 No Google Play Services, analytics or advertising libraries are included.
 
 # Both apps
+
+## whisper.cpp and ggml
+
+The offline speech engine. https://github.com/ggml-org/whisper.cpp
+
+```
+MIT License
+
+Copyright (c) 2023-2026 The ggml authors
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+```
+
+## Whisper models (offline fallback)
+
+Not bundled: the model you choose is downloaded once, on your device, from whisper.cpp's page on Hugging Face
+(https://huggingface.co/ggerganov/whisper.cpp). The models are converted from OpenAI's Whisper, released under the MIT
+License, © 2022 OpenAI (https://github.com/openai/whisper).
 
 ## Google Gemini API
 

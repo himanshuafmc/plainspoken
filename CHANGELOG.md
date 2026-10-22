@@ -2,6 +2,19 @@
 
 All notable changes to Plainspoken. Versions follow [Semantic Versioning](https://semver.org/).
 
+## [0.6.0] - 2026-10-22
+
+Plainspoken now keeps working **without internet**: when no speech service can help, it transcribes on your phone or PC.
+
+### Both apps
+- **Offline fallback.** Your speech services are still tried first. Plainspoken switches to offline transcription on the device when there's no internet, when no service has a key, when every service fails, or when none has answered after 6 seconds (then whichever finishes first is used). It uses whisper.cpp, an open-source version of OpenAI's Whisper.
+- **Download the model once** in Settings (Windows: Settings → Offline; Android: Settings → Offline fallback), with progress; an interrupted download carries on where it stopped, and the file is checked before use. Windows offers Medium (about 540 MB, the default), Large v3 Turbo (about 575 MB) and Small; Android offers Small (about 190 MB, the default) and Base (about 60 MB, faster).
+- With the model downloaded, Plainspoken works even with no key at all.
+- Offline text says "Typed offline" when it goes in and is marked in your recent transcripts. It isn't tidied up by a language model, and Hindi may come out in Devanagari.
+
+### Android
+- The app is a little larger (the offline engine is built in for every phone type; the model itself is a separate download).
+
 ## [0.5.0] - 2026-10-21
 
 The **Windows** app catches up with Android — any speech service, cleaner text, hold-to-talk, snippets and more — and **Android** gets a floating mic that works with your usual keyboard.
@@ -114,6 +127,7 @@ The first public release. 🎉
 - Windows may show "Windows protected your PC" the first time: click More info → Run anyway. The app isn't code-signed yet.
 - Windows 10/11, 64-bit. No installer; unzip and run.
 
+[0.6.0]: https://github.com/himanshuafmc/plainspoken/releases/tag/v0.6.0
 [0.5.0]: https://github.com/himanshuafmc/plainspoken/releases/tag/v0.5.0
 [0.4.0]: https://github.com/himanshuafmc/plainspoken/releases/tag/v0.4.0
 [0.2.2]: https://github.com/himanshuafmc/plainspoken/releases/tag/v0.2.2

@@ -202,6 +202,21 @@ For each: [ ] tap mic → it turns into a green ✓ with a moving halo and "List
 - [ ] Settings → Speed and cost: each service shows dictations, typical time to text and, after entering a price on its screen, this month's cost.
 - [ ] Export settings: the file has the service order, snippets and clean-up settings, **and no keys**.
 
+## Q. Offline fallback (0.6.0)
+
+Windows (Settings → Offline) and Android (Settings → Offline fallback) — tick each for both.
+
+- [ ] Download the default model (Windows Medium, Android Small) on Wi-Fi → progress climbs, then "Downloaded — ready to use". Close Settings halfway on Android → the download carries on; on Windows, Cancel → "Download stopped"; Download again → it resumes, not from zero.
+- [ ] **No internet** (Wi-Fi and mobile data off / airplane mode): dictate a short English sentence → text goes in, "Typed offline" shows, History/Recent marks it "offline". Note how long it took: Windows ____ s, Android ____ s.
+- [ ] Dictate a Hinglish sentence offline → note the script (Roman / Devanagari) and accuracy: ________.
+- [ ] **Wrong key** (Settings → set up the main service with a wrong key, no backup): dictate → offline text goes in. Put the right key back.
+- [ ] **No key at all** (fresh install, nothing set up, model downloaded): dictation starts and works offline; without the model, the app asks for a key as before.
+- [ ] Normal use with internet → never "Typed offline"; the log has no "offline:" lines.
+- [ ] Switch offline off → with no internet you get the usual error and "Retry" again.
+- [ ] Delete the model → space is freed (Windows: `%LOCALAPPDATA%\Plainspoken\models`; Android: Settings shows "Not downloaded yet").
+- [ ] Windows: after unzipping, the folder has `runtimes\win-x64\whisper.dll` next to `Plainspoken.exe`; the log after an offline dictation says "offline: medium took … ms".
+- [ ] Android: the log after an offline dictation says "offline: small took … ms"; the phone doesn't get hot or crash. Note the model and Android version if it says "Not available on this phone".
+
 ## P. Floating mic (0.5.0)
 
 - [ ] **Standard APK** (`Plainspoken-android-0.5.0.apk`): download it on the phone and install over 0.4.0 → it installs (no "App not installed"). The checklist has no floating-mic step; Settings → Floating mic says it's in the floating-mic edition. The keyboard works as in 0.4.0.
