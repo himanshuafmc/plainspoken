@@ -19,7 +19,7 @@
   </PropertyGroup>
   <ItemGroup>
     <!-- Microphone capture (WASAPI). Pinned to the mature 2.x line; see docs/DECISIONS.md. -->
-    <PackageReference Include="NAudio.Wasapi" Version="2.4.0" />
+    <PackageReference Include="NAudio.Wasapi" Version="3.3.0" />
     <!-- Offline fallback: whisper.cpp through Whisper.net (both MIT); the CPU runtime has the native libraries. -->
     <PackageReference Include="Whisper.net" Version="1.9.1" />
     <PackageReference Include="Whisper.net.Runtime" Version="1.9.1" />
