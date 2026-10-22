@@ -33,13 +33,16 @@ internal object WhisperNative {
 
     /** Loads the library and ggml's CPU backends (the best one this phone's processor supports); false if it can't. */
     fun available(context: Context): Boolean = loaded ?: synchronized(this) {
-        loaded ?: try {
+        loaded?.let { return it }
+        val ok = try {
             System.loadLibrary("plainspoken_whisper")
             loadBackends(context.applicationInfo.nativeLibraryDir)
             true
         } catch (_: Throwable) {
             false
-        }.also { loaded = it }
+        }
+        loaded = ok
+        ok
     }
 
     external fun loadBackends(dir: String)
