@@ -323,10 +323,10 @@ public sealed class DictationController
         });
 
         string text;
+        TranscriptionOutcome? outcome = null;
         try
         {
             var request = TranscriptionRequest.From(wav, duration, settings);
-            TranscriptionOutcome? outcome = null;
             if (live is not null)
             {
                 var sw = Stopwatch.StartNew();
@@ -397,7 +397,7 @@ public sealed class DictationController
 
         if (settings.History.Enabled)
         {
-            _history.Add(text, duration, _time.GetUtcNow());
+            _history.Add(text, duration, _time.GetUtcNow(), outcome?.Offline == true);
         }
 
         var toInsert = TextPostProcessor.ForInsertion(text, settings.Insertion.TrailingSpace);
@@ -416,7 +416,15 @@ public sealed class DictationController
         switch (result)
         {
             case InsertOutcome.Inserted:
-                _view.HideOverlay();
+                if (outcome?.Offline == true)
+                {
+                    _view.ShowHint(UserMessages.TypedOffline);
+                }
+                else
+                {
+                    _view.HideOverlay();
+                }
+
                 if (insertAtCursor)
                 {
                     Inserted?.Invoke(this, text);

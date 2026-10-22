@@ -84,6 +84,18 @@ class DictationControllerTests {
     }
 
     @Test
+    fun `offline text is inserted with a note and marked in history`() = runTest {
+        val c = controller()
+        transcriber.offline = true
+        transcriber.result = "Kal milte hain."
+        c.toggle()
+        c.toggle()
+        assertEquals(listOf("Kal milte hain. "), inserter.inserted)
+        assertEquals(UserMessages.TYPED_OFFLINE, view.hints.last())
+        assertTrue(history.all.single().offline)
+    }
+
+    @Test
     fun `short or silent clips are not sent`() = runTest {
         val c = controller()
         recorder.audio = speech(0.3)
@@ -294,13 +306,14 @@ class DictationControllerTests {
         var calls = 0
         var warmUps = 0
         var lastSeconds = 0.0
+        var offline = false
 
         override suspend fun transcribe(request: TranscriptionRequest, settings: PlainspokenSettings, status: ((String) -> Unit)?): TranscriptionOutcome {
             calls++
             lastSeconds = request.durationSeconds
             gate?.await()
             error?.let { throw it }
-            return TranscriptionOutcome(result, SpeechService.GEMINI)
+            return TranscriptionOutcome(result, SpeechService.GEMINI, offline = offline)
         }
 
         val finished = ArrayList<Pair<String, SpeechService>>()

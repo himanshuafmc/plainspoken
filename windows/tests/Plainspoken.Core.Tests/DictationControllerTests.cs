@@ -108,6 +108,21 @@ public sealed class DictationControllerTests : IDisposable
     }
 
     [Fact]
+    public async Task Offline_text_is_inserted_with_a_note_and_marked_in_history()
+    {
+        var c = Create();
+        _recorder.Audio = Speech(1);
+        _transcriber.Offline = true;
+        _transcriber.Result = "Kal milte hain.";
+        await c.ToggleAsync();
+        await c.ToggleAsync();
+
+        Assert.Equal(["Kal milte hain. "], _inserter.Inserted);
+        Assert.Equal(UserMessages.TypedOffline, _view.Hints[^1]);
+        Assert.True(_history.Entries.Single().Offline);
+    }
+
+    [Fact]
     public async Task Paused_live_streaming_goes_straight_to_the_normal_engine()
     {
         _settings.Transcription.LiveStreaming = true;
@@ -482,6 +497,8 @@ public sealed class DictationControllerTests : IDisposable
 
         public TranscriptionRequest? LastRequest { get; private set; }
 
+        public bool Offline { get; set; }
+
         public bool PendingExistedDuringCall { get; private set; }
 
         public Func<int>? PendingCount { get; set; }
@@ -505,7 +522,7 @@ public sealed class DictationControllerTests : IDisposable
                 throw Error;
             }
 
-            return new TranscriptionOutcome(Result, SpeechService.Gemini);
+            return new TranscriptionOutcome(Result, SpeechService.Gemini, Offline: Offline);
         }
 
         public List<(string Raw, SpeechService Service)> Finished { get; } = [];

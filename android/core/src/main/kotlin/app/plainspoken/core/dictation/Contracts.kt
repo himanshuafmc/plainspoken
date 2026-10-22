@@ -86,6 +86,7 @@ object UserMessages {
     const val DIDNT_CATCH = "Didn't catch that"
     const val BUSY = "Busy — still transcribing"
     const val COPIED = "Copied — long-press the text box and tap Paste"
+    const val TYPED_OFFLINE = "Typed offline"
     const val CANCELLED = "Cancelled"
     const val CANCELLED_SAVED = "Stopped — recording saved. Tap Retry to try again."
     const val NOTHING_TO_RETRY = "Nothing to retry"

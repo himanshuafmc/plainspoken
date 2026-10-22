@@ -257,6 +257,7 @@ class DictationController(
         }
 
         val text: String
+        var offline = false
         try {
             text = coroutineScope {
                 val job = async {
@@ -267,7 +268,9 @@ class DictationController(
                         tryLive(live)?.let { raw -> transcriber.finish(raw, live.service, request, s, status, (System.nanoTime() - started) / 1_000_000) }
                     }
 
-                    TextPostProcessor.clean((streamed ?: transcriber.transcribe(request, s, status)).text)
+                    val outcome = streamed ?: transcriber.transcribe(request, s, status)
+                    offline = outcome.offline
+                    TextPostProcessor.clean(outcome.text)
                 }
 
                 transcribeJob = job
@@ -302,7 +305,7 @@ class DictationController(
             return
         }
 
-        if (s.history.enabled) history.add(text, duration, clock.now())
+        if (s.history.enabled) history.add(text, duration, clock.now(), offline)
         val toInsert = TextPostProcessor.forInsertion(text, s.insertion.trailingSpace)
         val result = if (insertAtCursor) {
             inserter.insert(toInsert)
@@ -314,7 +317,7 @@ class DictationController(
 
         log.info("delivered: $result, ${text.length} chars")
         when (result) {
-            InsertOutcome.INSERTED -> view.showIdle()
+            InsertOutcome.INSERTED -> if (offline) view.showHint(UserMessages.TYPED_OFFLINE) else view.showIdle()
             InsertOutcome.COPIED -> view.showHint(UserMessages.COPIED)
             InsertOutcome.FAILED -> view.showError(UserMessages.INSERT_FAILED)
         }

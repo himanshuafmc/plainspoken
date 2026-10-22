@@ -58,6 +58,9 @@ Hindi-script setting is Roman. Document that offline Hinglish is weaker.
 - [x] Step 1a: router rules in both cores (`IOfflineTranscriber` / `OfflineTranscriber`, `OfflineAfter` 6 s, no internet /
   no usable service / all failed → offline; offline skips clean-up and stats; outcome marked `Offline`), with tests
   (Windows 261, Android 121 passing).
-- [ ] Step 1b: dictation controllers record and transcribe with no key when offline is ready (today `hasKey` blocks
-  recording); "Typed offline" note and History mark; a real network check passed in by each app.
+- [x] Step 1b: both controllers show "Typed offline" after offline text goes in and mark it in History
+  (`HistoryEntry.offline`, old history files still load). Tests: Windows 262, Android 122 passing.
+- [ ] Step 2 (Windows) and Step 3 (Android) also wire in, per app: `hasKey` passed to the controller becomes
+  "any key, or offline ready" so dictation works with no key; a real network check for `isOnline`; History shows the
+  offline mark.
 - [ ] Step 2 · [ ] Step 3 · [ ] Step 4 · [ ] Step 5

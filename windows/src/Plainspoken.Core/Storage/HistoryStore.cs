@@ -3,7 +3,8 @@ using Plainspoken.Core.Logging;
 
 namespace Plainspoken.Core.Storage;
 
-public sealed record HistoryEntry(Guid Id, DateTimeOffset CreatedUtc, string Text, double DurationSeconds);
+/// <param name="Offline">Transcribed on this device (the offline fallback), not by a speech service.</param>
+public sealed record HistoryEntry(Guid Id, DateTimeOffset CreatedUtc, string Text, double DurationSeconds, bool Offline = false);
 
 /// <summary>The last N transcripts, newest first, persisted as JSON. Thread-safe.</summary>
 public sealed class HistoryStore
@@ -39,9 +40,9 @@ public sealed class HistoryStore
         }
     }
 
-    public HistoryEntry Add(string text, double durationSeconds, DateTimeOffset nowUtc)
+    public HistoryEntry Add(string text, double durationSeconds, DateTimeOffset nowUtc, bool offline = false)
     {
-        var entry = new HistoryEntry(Guid.NewGuid(), nowUtc, text, Math.Round(durationSeconds, 1));
+        var entry = new HistoryEntry(Guid.NewGuid(), nowUtc, text, Math.Round(durationSeconds, 1), offline);
         lock (_gate)
         {
             _entries.Insert(0, entry);
