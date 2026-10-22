@@ -259,6 +259,12 @@ class LocalSettings {
 
     /** Windows only: where the mini button was dragged to. */
     var miniButtonPosition: String? = null
+
+    /** Transcribe on this device when there's no internet, no usable service or none answers in time. */
+    var offlineEnabled: Boolean = true
+
+    /** The offline model's id (see [app.plainspoken.core.offline.OfflineModels]); null = this platform's default. */
+    var offlineModel: String? = null
 }
 
 object LanguagePresets {

@@ -99,6 +99,14 @@ Windows 10/11 x64 · C# / .NET 10 · WinForms · NAudio for capture · P/Invoke 
 - **Other audio pauses while recording** (Android): the recorder takes the transient exclusive audio focus that Android intends for speech input, so music or a video doesn't end up in the dictation, and hands it back when recording ends.
 - **Common Hindi words aren't offered as vocabulary.** The correction learner already skipped short words and common English and Hindi words; common Roman-Hindi words of four letters or more (accha, theek, abhi, bahut, lekin, matlab, …) are now skipped too, so rephrasing a Hinglish sentence doesn't offer them.
 
+## Offline fallback (0.6.0)
+- **Last resort, not a mode.** Online services are more accurate, especially for Hinglish, so they always go first; offline is used when there's no internet, no usable service, every service failed, or none answered in 6 seconds (then it runs alongside them and the first text wins). The maintainer chose 6 s: enough for a backup service to answer on a normal connection.
+- **whisper.cpp on both apps**, so Windows and Android behave alike and transcribe the audio already recorded (Android's built-in recognizer can only re-read a recording on Android 13+ and not reliably). Windows uses Whisper.net (MIT) rather than shipping a separate executable; Android builds whisper.cpp from source with a small JNI bridge, as no maintained Android library exists.
+- **Models downloaded once, not bundled**, so the APK and zip stay small and each person picks the size: Android small (about 190 MB) by default, Windows medium (about 540 MB) — the maintainer's choice — with large-v3 turbo offered as a faster, more accurate alternative of similar size. Sizes and SHA-256s are pinned from Hugging Face's listing (not typed by hand) and CI fails if they drift; a download is used only when both match.
+- **CPU variants on Android.** Phones' ARM cores differ a lot, and code built for newer ones crashes older ones; ggml's per-level CPU backends, loaded at run time, keep old phones working and new ones fast, at the cost of a few MB of native libraries. 32-bit ARM and x86_64 builds exist only so the APK still installs there.
+- **No clean-up offline.** A local language model would add hundreds of MB and seconds per dictation; offline text gets the local filler filter only.
+- **Language `auto` with Hindi presets.** Forcing English makes Whisper translate Hindi; auto-detection may write Hindi in Devanagari, which is documented.
+
 ## CI and releases
 - Push runs on every branch and `v*` tags; same-repo `pull_request` runs are skipped because the push run on the same commit already reports to the PR.
 - One workflow (`build.yml`) runs the Windows core tests, the Windows build and the Android build (core tests, APK, lint) on every push.

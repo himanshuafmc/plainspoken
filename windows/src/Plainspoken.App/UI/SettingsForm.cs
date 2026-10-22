@@ -2,6 +2,7 @@ using System.Text.Json;
 using Plainspoken.App.Audio;
 using Plainspoken.App.Platform;
 using Plainspoken.Core;
+using Plainspoken.Core.Offline;
 using Plainspoken.Core.Settings;
 using Plainspoken.Core.Storage;
 using Plainspoken.Core.Transcription;
@@ -71,6 +72,12 @@ internal sealed class SettingsForm : Form
     private readonly CheckBox _miniButton = Ui.Check("Show a small dictation button on screen when idle");
     private readonly NumericUpDown _hedge = new() { Minimum = 0, Maximum = 30, Width = 60, Anchor = AnchorStyles.Left };
     private readonly CheckBox _compress = Ui.Check("Compress the audio before sending (smaller, faster uploads)");
+    private readonly CheckBox _offlineEnabled = Ui.Check("Transcribe on this computer when there's no internet or no service answers");
+    private readonly ComboBox _offlineModel = Ui.Combo(OfflineModels.Pc.Select(m => m.Label).ToArray());
+    private readonly Label _offlineStatus = Ui.Note("");
+    private Button? _offlineDownload;
+    private Button? _offlineDelete;
+    private CancellationTokenSource? _download;
     private readonly TextBox _currency = new() { Width = 50, Anchor = AnchorStyles.Left, MaxLength = 4 };
     private bool _resetMiniPosition;
     private readonly NumericUpDown _maxMinutes = new() { Minimum = 1, Maximum = 30, Width = 70, Anchor = AnchorStyles.Left };
@@ -122,6 +129,7 @@ internal sealed class SettingsForm : Form
         tabs.TabPages.Add(Ui.Page("Clean-up", BuildCleanup()));
         tabs.TabPages.Add(Ui.Page("Vocabulary", BuildVocabulary()));
         tabs.TabPages.Add(Ui.Page("Snippets", BuildSnippets()));
+        tabs.TabPages.Add(Ui.Page("Offline", BuildOffline()));
         tabs.TabPages.Add(Ui.Page("Options", BuildOptions()));
         tabs.TabPages.Add(Ui.Page("Advanced", BuildAdvanced()));
 
@@ -152,6 +160,7 @@ internal sealed class SettingsForm : Form
 
     protected override void OnFormClosed(FormClosedEventArgs e)
     {
+        _download?.Cancel(); // a partial download carries on next time
         if (_hotkey.Capturing)
         {
             _host.ResumeHotkey();
@@ -270,6 +279,99 @@ internal sealed class SettingsForm : Form
         return g;
     }
 
+    private TableLayoutPanel BuildOffline()
+    {
+        var g = Ui.Grid();
+        Ui.Row(g, null, _offlineEnabled);
+        Ui.Row(g, "Model", _offlineModel);
+        _offlineDownload = Ui.Button("Download", async (_, _) => await DownloadModelAsync().ConfigureAwait(true));
+        _offlineDelete = Ui.Button("Delete", (_, _) =>
+        {
+            _host.Models.Delete(SelectedOfflineModel());
+            UpdateOfflineStatus();
+        });
+        Ui.Row(g, null, Ui.Flow(_offlineDownload, _offlineDelete));
+        Ui.Row(g, null, _offlineStatus);
+        Ui.Row(g, null, Ui.Note("Your speech services are always tried first. Offline is used when there's no internet or no key, when every " +
+                                "service fails, or when none has answered after 6 seconds. The model is downloaded once from whisper.cpp's " +
+                                "page on Hugging Face; after that it needs no internet. Offline text isn't tidied up, and Hindi may come " +
+                                "out in Devanagari."));
+        _offlineModel.SelectedIndexChanged += (_, _) => UpdateOfflineStatus();
+        return g;
+    }
+
+    private OfflineModel SelectedOfflineModel() => OfflineModels.Pc[Math.Max(0, _offlineModel.SelectedIndex)];
+
+    private void UpdateOfflineStatus()
+    {
+        if (_download is not null || _offlineDownload is null || _offlineDelete is null)
+        {
+            return;
+        }
+
+        var model = SelectedOfflineModel();
+        var downloaded = _host.Models.IsDownloaded(model);
+        _offlineStatus.Text = downloaded ? "Downloaded — ready to use." : model.Pinned ? "Not downloaded yet." : "Not available in this version.";
+        _offlineDownload.Text = "Download";
+        _offlineDownload.Enabled = !downloaded && model.Pinned;
+        _offlineDelete.Enabled = downloaded;
+    }
+
+    /// <summary>Downloads the chosen model; while it runs, the button cancels it.</summary>
+    private async Task DownloadModelAsync()
+    {
+        if (_download is { } running)
+        {
+            await running.CancelAsync().ConfigureAwait(true);
+            return;
+        }
+
+        var model = SelectedOfflineModel();
+        using var cts = new CancellationTokenSource();
+        _download = cts;
+        _offlineDownload!.Text = "Cancel";
+        _offlineDelete!.Enabled = false;
+        _offlineModel.Enabled = false;
+        _offlineStatus.Text = "Starting the download…";
+        string? message = null;
+        try
+        {
+            await _host.Models.DownloadAsync(model, (have, total) =>
+            {
+                if (IsHandleCreated && !IsDisposed)
+                {
+                    BeginInvoke(new Action(() => _offlineStatus.Text =
+                        $"Downloading… {have * 100 / Math.Max(1, total)} % of {total / 1_000_000} MB"));
+                }
+            }, cts.Token).ConfigureAwait(true);
+        }
+        catch (OperationCanceledException)
+        {
+            message = "Download stopped. Click Download to carry on where it stopped.";
+        }
+        catch (Exception ex) when (ex is IOException or HttpRequestException)
+        {
+            _host.Log.Warn($"offline model {model.Id}: download failed ({ex.GetType().Name})");
+            message = "Couldn't download the model. Check the internet connection and try again.";
+        }
+        finally
+        {
+            _download = null;
+        }
+
+        if (IsDisposed)
+        {
+            return;
+        }
+
+        _offlineModel.Enabled = true;
+        UpdateOfflineStatus();
+        if (message is not null)
+        {
+            _offlineStatus.Text = message;
+        }
+    }
+
     private TableLayoutPanel BuildAdvanced()
     {
         var g = Ui.Grid();
@@ -314,6 +416,9 @@ internal sealed class SettingsForm : Form
         LoadMicrophones(s.Local.MicrophoneId);
         _vocabulary.Text = VocabularyCleaner.ToText(t.CustomVocabulary);
         _learn.Checked = s.Local.LearnFromCorrections;
+        _offlineEnabled.Checked = s.Local.OfflineEnabled;
+        _offlineModel.SelectedIndex = Math.Max(0, OfflineModels.Pc.ToList().IndexOf(WhisperOffline.ModelFor(s)));
+        UpdateOfflineStatus();
         _cleanup.SelectedIndex = (int)t.Cleanup.Provider;
         _cleanupGeminiModel.Text = t.Cleanup.GeminiModel;
         _cleanupAlsoGemini.Checked = t.Cleanup.AlsoGemini;
@@ -376,6 +481,8 @@ internal sealed class SettingsForm : Form
         s.Local.MicrophoneId = SelectedMicrophoneId();
         t.CustomVocabulary = VocabularyCleaner.FromText(_vocabulary.Text);
         s.Local.LearnFromCorrections = _learn.Checked;
+        s.Local.OfflineEnabled = _offlineEnabled.Checked;
+        s.Local.OfflineModel = SelectedOfflineModel().Id;
         t.Cleanup.Provider = (CleanupProvider)Math.Max(0, _cleanup.SelectedIndex);
         t.Cleanup.GeminiModel = _cleanupGeminiModel.Text;
         t.Cleanup.AlsoGemini = _cleanupAlsoGemini.Checked;
@@ -461,7 +568,8 @@ internal sealed class SettingsForm : Form
         }
 
         string? Final(SpeechService s) => keys.TryGetValue(s.KeySlot(), out var k) ? (k.Length == 0 ? null : k) : _host.KeyFor(s.KeySlot());
-        if (updated.Transcription.OrderedServices().All(s => Final(s) is null) &&
+        var offlineReady = updated.Local.OfflineEnabled && _host.Models.IsDownloaded(WhisperOffline.ModelFor(updated));
+        if (!offlineReady && updated.Transcription.OrderedServices().All(s => Final(s) is null) &&
             MessageBox.Show(this, "None of the chosen speech services has a key, so Plainspoken can't transcribe yet. Save anyway?", Text,
                 MessageBoxButtons.YesNo, MessageBoxIcon.Warning) != DialogResult.Yes)
         {

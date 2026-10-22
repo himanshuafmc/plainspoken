@@ -19,6 +19,9 @@ internal static class AppPaths
 
     public static string PendingDir => Path.Combine(LocalDir, "pending");
 
+    /// <summary>Offline Whisper models, downloaded once.</summary>
+    public static string ModelsDir => Path.Combine(LocalDir, "models");
+
     public static string LogsDir => Path.Combine(LocalDir, "logs");
 
     public static void OpenFolder(string path)

@@ -10,6 +10,8 @@ public static class UserMessages
     public const string DidntCatch = "Didn't catch that";
     public const string Busy = "Busy — still transcribing";
     public const string Copied = "Copied — press Ctrl+V";
+
+    public const string TypedOffline = "Typed offline";
     public const string Cancelled = "Cancelled";
     public const string CancelledSaved = "Stopped — recording saved. Use \"Retry last dictation\" in the tray menu.";
     public const string NothingToRetry = "Nothing to retry";

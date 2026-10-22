@@ -45,7 +45,7 @@ class HistoryActivity : Activity() {
         setContentView(root)
         retryController = DictationController(
             settings = services::settings,
-            hasApiKey = services::hasApiKey,
+            hasApiKey = services::canTranscribe,
             recorder = NoRecorder,
             transcriber = services.transcriber,
             inserter = ClipboardOnly(),
@@ -108,7 +108,8 @@ class HistoryActivity : Activity() {
                 setLineSpacing(0f, 1.15f)
             })
             texts.addView(TextView(this).apply {
-                text = DateUtils.getRelativeTimeSpanString(entry.created.toEpochMilli(), System.currentTimeMillis(), DateUtils.MINUTE_IN_MILLIS)
+                val time = DateUtils.getRelativeTimeSpanString(entry.created.toEpochMilli(), System.currentTimeMillis(), DateUtils.MINUTE_IN_MILLIS)
+                text = if (entry.offline) "$time · typed offline" else time
                 setTextColor(ui.palette.muted)
                 setTextSize(TypedValue.COMPLEX_UNIT_SP, 12f)
                 setPadding(0, dp(4), 0, 0)

@@ -9,7 +9,20 @@ using Plainspoken.Core.Settings;
 namespace Plainspoken.Core.Transcription;
 
 /// <summary>The finished text, which service heard it, and which clean-up service tidied it (null = not cleaned).</summary>
-public sealed record TranscriptionOutcome(string Text, SpeechService Service, string? CleanedBy = null);
+/// <param name="Offline">The text came from the model on this device (<see cref="IOfflineTranscriber"/>).</param>
+public sealed record TranscriptionOutcome(string Text, SpeechService Service, string? CleanedBy = null, bool Offline = false);
+
+/// <summary>
+/// Transcription on this device, the last resort: used when there is no internet, no usable service or every service
+/// failed, and alongside the services when none has answered within <see cref="TranscriptionService.OfflineAfter"/>.
+/// </summary>
+public interface IOfflineTranscriber
+{
+    /// <summary>True when offline fallback is on and its model is on this device.</summary>
+    bool IsReady(PlainspokenSettings settings);
+
+    Task<string> TranscribeAsync(TranscriptionRequest request, CancellationToken ct);
+}
 
 /// <summary>Turns a recording into finished text: the speech service(s), then clean-up and snippets. Used by the dictation controller.</summary>
 public interface ITranscriber
@@ -107,6 +120,8 @@ public sealed class TranscriptionService : ITranscriber
     private readonly IAudioCompressor? _compressor;
     private readonly Func<SpeechService, PlainspokenSettings, CancellationToken, Task>? _warmUp;
     private readonly TimeProvider _time;
+    private readonly IOfflineTranscriber? _offline;
+    private readonly Func<bool> _isOnline;
     private long _lastWarmUpTicks;
 
     /// <param name="engineFactory">(service, settings, server retries) → engine.</param>
@@ -119,7 +134,9 @@ public sealed class TranscriptionService : ITranscriber
         IAudioCompressor? compressor = null,
         Func<SpeechService, PlainspokenSettings, CancellationToken, Task>? warmUp = null,
         TimeProvider? time = null,
-        ServiceHealth? health = null)
+        ServiceHealth? health = null,
+        IOfflineTranscriber? offline = null,
+        Func<bool>? isOnline = null)
     {
         _engineFactory = engineFactory ?? throw new ArgumentNullException(nameof(engineFactory));
         _hasKey = hasKey ?? throw new ArgumentNullException(nameof(hasKey));
@@ -130,9 +147,14 @@ public sealed class TranscriptionService : ITranscriber
         _warmUp = warmUp;
         _time = time ?? TimeProvider.System;
         Health = health ?? new ServiceHealth(time: _time);
+        _offline = offline;
+        _isOnline = isOnline ?? (() => true);
     }
 
     public ServiceHealth Health { get; }
+
+    /// <summary>How long the services get before offline transcription starts as well.</summary>
+    public TimeSpan OfflineAfter { get; init; } = TimeSpan.FromSeconds(6);
 
     public void WarmUp(PlainspokenSettings settings)
     {
@@ -177,6 +199,16 @@ public sealed class TranscriptionService : ITranscriber
         ArgumentNullException.ThrowIfNull(request);
         ArgumentNullException.ThrowIfNull(settings);
         var order = UsableServices(settings);
+        var offline = _offline is { } o && o.IsReady(settings) ? o : null;
+        if (offline is not null && (order.Count == 0 || !_isOnline()))
+        {
+            _log.Info(order.Count == 0 ? "transcribe: no usable service; offline" : "transcribe: no internet; offline");
+            var started = Stopwatch.StartNew();
+            var local = await offline.TranscribeAsync(request, ct).ConfigureAwait(false);
+            return await FinishTextAsync(local, order.Count > 0 ? order[0] : settings.Transcription.OrderedServices()[0], request, settings, status,
+                started.ElapsedMilliseconds, streamed: false, usedBackup: false, hedged: false, offline: true, ct).ConfigureAwait(false);
+        }
+
         if (order.Count == 0)
         {
             throw new TranscriptionException(TranscriptionErrorKind.NoKey, "No key for any chosen service.",
@@ -192,7 +224,9 @@ public sealed class TranscriptionService : ITranscriber
         Heard heard;
         try
         {
-            heard = await ListenAsync(prepared, settings, order, status, ct).ConfigureAwait(false);
+            heard = offline is null
+                ? await ListenAsync(prepared, settings, order, status, ct).ConfigureAwait(false)
+                : await ListenOrOfflineAsync(prepared, request, settings, order, offline, status, ct).ConfigureAwait(false);
         }
         catch (TranscriptionException ex)
         {
@@ -202,14 +236,72 @@ public sealed class TranscriptionService : ITranscriber
         }
 
         return await FinishTextAsync(heard.Text, heard.Service, request, settings, status, sw.ElapsedMilliseconds, streamed: false,
-            usedBackup: heard.Service != order[0], hedged: heard.Hedged, ct).ConfigureAwait(false);
+            usedBackup: heard.Service != order[0], hedged: heard.Hedged, heard.Offline, ct).ConfigureAwait(false);
     }
 
     public Task<TranscriptionOutcome> FinishAsync(string raw, SpeechService service, TranscriptionRequest request, PlainspokenSettings settings,
         IProgress<string>? status, long listenMs, CancellationToken ct) =>
-        FinishTextAsync(raw, service, request, settings, status, listenMs, streamed: true, usedBackup: false, hedged: false, ct);
+        FinishTextAsync(raw, service, request, settings, status, listenMs, streamed: true, usedBackup: false, hedged: false, offline: false, ct);
 
-    private sealed record Heard(string Text, SpeechService Service, bool Hedged);
+    private sealed record Heard(string Text, SpeechService Service, bool Hedged, bool Offline = false);
+
+    /// <summary>
+    /// The services' text; offline transcription starts as soon as they have all failed, or alongside them once
+    /// <see cref="OfflineAfter"/> has passed, and the first text wins. If offline fails too, the services' error stands.
+    /// </summary>
+    private async Task<Heard> ListenOrOfflineAsync(TranscriptionRequest prepared, TranscriptionRequest original, PlainspokenSettings settings,
+        IReadOnlyList<SpeechService> order, IOfflineTranscriber offline, IProgress<string>? status, CancellationToken ct)
+    {
+        using var stop = CancellationTokenSource.CreateLinkedTokenSource(ct);
+        var online = ListenAsync(prepared, settings, order, status, stop.Token);
+        Observe(online);
+        using (var timer = CancellationTokenSource.CreateLinkedTokenSource(ct))
+        {
+            var wait = Task.Delay(OfflineAfter, _time, timer.Token);
+            await Task.WhenAny(online, wait).ConfigureAwait(false);
+            await timer.CancelAsync().ConfigureAwait(false);
+        }
+
+        ct.ThrowIfCancellationRequested();
+        if (online.IsCompletedSuccessfully)
+        {
+            return online.Result;
+        }
+
+        _log.Info(online.IsCompleted ? "transcribe: every service failed; offline" : "transcribe: no answer yet; offline as well");
+        status?.Report("Transcribing on this device…");
+        var local = offline.TranscribeAsync(original, stop.Token);
+        Observe(local);
+        var running = new List<Task> { local };
+        if (!online.IsCompleted)
+        {
+            running.Add(online);
+        }
+
+        while (running.Count > 0)
+        {
+            var finished = await Task.WhenAny(running).ConfigureAwait(false);
+            running.Remove(finished);
+            if (finished.IsCompletedSuccessfully)
+            {
+                await stop.CancelAsync().ConfigureAwait(false);
+                return finished == local ? new Heard(local.Result, order[0], Hedged: false, Offline: true) : online.Result;
+            }
+
+            if (finished == local)
+            {
+                _log.Warn($"offline: failed ({local.Exception?.InnerException?.GetType().Name ?? "cancelled"})");
+            }
+        }
+
+        ct.ThrowIfCancellationRequested();
+        await online.ConfigureAwait(false); // throws the services' error
+        throw new TranscriptionException(TranscriptionErrorKind.UnexpectedResponse, "offline: no text", service: order[0]);
+    }
+
+    /// <summary>The losing task's failure (or cancellation) is expected; this keeps it from going unobserved.</summary>
+    private static void Observe(Task task) =>
+        _ = task.ContinueWith(t => _ = t.Exception, CancellationToken.None, TaskContinuationOptions.OnlyOnFaulted, TaskScheduler.Default);
 
     private sealed record Attempt(SpeechService Service, string? Text, TranscriptionException? Error);
 
@@ -320,7 +412,8 @@ public sealed class TranscriptionService : ITranscriber
     }
 
     private async Task<TranscriptionOutcome> FinishTextAsync(string raw, SpeechService service, TranscriptionRequest request,
-        PlainspokenSettings settings, IProgress<string>? status, long listenMs, bool streamed, bool usedBackup, bool hedged, CancellationToken ct)
+        PlainspokenSettings settings, IProgress<string>? status, long listenMs, bool streamed, bool usedBackup, bool hedged, bool offline,
+        CancellationToken ct)
     {
         ArgumentNullException.ThrowIfNull(raw);
         ArgumentNullException.ThrowIfNull(request);
@@ -328,7 +421,8 @@ public sealed class TranscriptionService : ITranscriber
         var sw = Stopwatch.StartNew();
         var text = raw.Trim();
         string? cleanedBy = null;
-        if (ShouldClean(settings, service, text) && _cleaners?.Invoke(settings) is { } cleaner)
+        // Offline text stays on the device: no clean-up service, only the local filler filter below.
+        if (!offline && ShouldClean(settings, service, text) && _cleaners?.Invoke(settings) is { } cleaner)
         {
             status?.Report("Tidying up…");
             try
@@ -363,9 +457,13 @@ public sealed class TranscriptionService : ITranscriber
             _log.Info($"cleanup: {cleanedBy} in {cleanupMs} ms");
         }
 
-        _stats?.Record(new DictationStat(_time.GetUtcNow(), service, request.DurationSeconds, listenMs, cleanupMs, Ok: true, Streamed: streamed,
-            UsedBackup: usedBackup, Hedged: hedged, CleanedBy: cleanedBy));
-        return new TranscriptionOutcome(text, service, cleanedBy);
+        if (!offline)
+        {
+            _stats?.Record(new DictationStat(_time.GetUtcNow(), service, request.DurationSeconds, listenMs, cleanupMs, Ok: true, Streamed: streamed,
+                UsedBackup: usedBackup, Hedged: hedged, CleanedBy: cleanedBy));
+        }
+
+        return new TranscriptionOutcome(text, service, cleanedBy, offline);
     }
 
     private static bool ShouldClean(PlainspokenSettings settings, SpeechService service, string raw)

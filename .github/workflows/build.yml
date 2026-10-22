@@ -23,6 +23,16 @@ env:
   NUGET_PACKAGES: ${{ github.workspace }}/.nuget/packages
 
 jobs:
+  offline-models:
+    # The offline models' pinned sizes and SHA-256s must match whisper.cpp's file list on Hugging Face.
+    if: github.event_name == 'push' || github.event.pull_request.head.repo.full_name != github.repository
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v7
+      - name: Check pinned model checksums
+        run: python3 .github/scripts/check_models.py
+
   windows-core-tests:
     # Same-repo PRs are already covered by the push run on the same commit.
     if: github.event_name == 'push' || github.event.pull_request.head.repo.full_name != github.repository
@@ -148,6 +158,13 @@ jobs:
             echo "::error::The standard APK declares an accessibility service"; exit 1
           fi
           "$bt/aapt2" dump xmltree --file AndroidManifest.xml "../Plainspoken-android-$v-floating-mic$suffix.apk" | grep -q BIND_ACCESSIBILITY_SERVICE
+          # The offline engine: whisper.cpp for each ABI, and ggml's CPU backends for 64-bit ARM.
+          libs=$(unzip -l "../Plainspoken-android-$v$suffix.apk" | awk '/lib\/.*\.so$/ {print $1, $4}')
+          echo "$libs"
+          for lib in arm64-v8a/libplainspoken_whisper.so armeabi-v7a/libplainspoken_whisper.so x86_64/libplainspoken_whisper.so \
+                     arm64-v8a/libggml-cpu-android_armv8.0_1.so arm64-v8a/libggml-cpu-android_armv8.2_1.so; do
+            echo "$libs" | grep -q "lib/$lib" || { echo "::error::lib/$lib is missing from the APK"; exit 1; }
+          done
       - uses: actions/upload-artifact@v7
         with:
           name: android
@@ -164,7 +181,7 @@ jobs:
 
   release:
     if: startsWith(github.ref, 'refs/tags/v') || (github.event_name == 'push' && contains(github.event.head_commit.message, '[release]'))
-    needs: [windows-core-tests, windows, android]
+    needs: [offline-models, windows-core-tests, windows, android]
     runs-on: ubuntu-latest
     timeout-minutes: 5
     permissions:

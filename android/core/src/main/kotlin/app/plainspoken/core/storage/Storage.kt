@@ -40,8 +40,9 @@ internal val storageJson = Json {
 
 internal fun round1(value: Double): Double = (value * 10).roundToLong() / 10.0
 
+/** [offline]: transcribed on this device (the offline fallback), not by a speech service. */
 @Serializable
-data class HistoryEntry(val id: String, val createdUtc: String, val text: String, val durationSeconds: Double) {
+data class HistoryEntry(val id: String, val createdUtc: String, val text: String, val durationSeconds: Double, val offline: Boolean = false) {
     val created: Instant get() = runCatching { Instant.parse(createdUtc) }.getOrDefault(Instant.EPOCH)
 }
 
@@ -61,8 +62,8 @@ class HistoryStore(private val file: File, private val log: Log, private val cap
 
     val all: List<HistoryEntry> get() = synchronized(lock) { entries.toList() }
 
-    fun add(text: String, durationSeconds: Double, now: Instant): HistoryEntry {
-        val entry = HistoryEntry(UUID.randomUUID().toString(), now.toString(), text, round1(durationSeconds))
+    fun add(text: String, durationSeconds: Double, now: Instant, offline: Boolean = false): HistoryEntry {
+        val entry = HistoryEntry(UUID.randomUUID().toString(), now.toString(), text, round1(durationSeconds), offline)
         synchronized(lock) {
             entries.add(0, entry)
             while (entries.size > capacity) entries.removeAt(entries.size - 1)

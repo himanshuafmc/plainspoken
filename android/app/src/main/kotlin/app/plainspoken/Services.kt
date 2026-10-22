@@ -18,8 +18,11 @@ import app.plainspoken.core.transcription.OkHttpLiveSocket
 import app.plainspoken.core.transcription.SarvamStream
 import app.plainspoken.core.transcription.StreamingTranscriber
 import app.plainspoken.core.transcription.TranscriptionService
+import app.plainspoken.core.offline.ModelStore
 import app.plainspoken.platform.AacCompressor
 import app.plainspoken.platform.KeyVault
+import app.plainspoken.platform.ModelDownload
+import app.plainspoken.platform.WhisperOffline
 import okhttp3.ConnectionPool
 import okhttp3.OkHttpClient
 import java.io.File
@@ -53,6 +56,11 @@ class Services(context: Context) {
     val pending = PendingStore(File(files, "pending"), log)
     val stats = StatsStore(File(files, "stats.json"), log)
 
+    /** The offline fallback: Whisper models on this phone, their download, and the engine. */
+    val models = ModelStore(File(files, "models"), http, log)
+    val modelDownload = ModelDownload(models, log)
+    val offline = WhisperOffline(context.applicationContext, models, { current }, log)
+
     val transcriber = TranscriptionService(
         engineFactory = TranscriptionService.engines(http, ::keyFor, log),
         hasKey = { !keyFor(it).isNullOrBlank() },
@@ -61,6 +69,8 @@ class Services(context: Context) {
         stats = stats,
         compressor = AacCompressor(context.cacheDir, log),
         warmUpCall = TranscriptionService.warmUp(http, ::keyFor, log),
+        offlineTranscriber = offline,
+        isOnline = { WhisperOffline.online(context) },
     )
 
     /** Streaming for the main service when it can (Gemini, Sarvam or Deepgram). */
@@ -120,6 +130,9 @@ class Services(context: Context) {
 
     /** True when at least one service in the user's order has a key, so dictation can start. */
     fun hasApiKey(): Boolean = current.transcription.orderedServices().any { !keyFor(it).isNullOrBlank() }
+
+    /** Dictation can work: a chosen service has a key, or the offline model is ready. */
+    fun canTranscribe(): Boolean = hasApiKey() || offline.isReady(current)
 
     fun setKey(slot: String, key: String?) {
         val trimmed = key?.trim().orEmpty()

@@ -106,7 +106,7 @@ class PlainspokenKeyboard : InputMethodService(), DictationView, TextInserter {
         val recorder = AndroidRecorder(this, services.log)
         controller = DictationController(
             settings = ::currentSettings,
-            hasApiKey = services::hasApiKey,
+            hasApiKey = services::canTranscribe,
             recorder = recorder,
             transcriber = services.transcriber,
             inserter = this,
@@ -484,7 +484,7 @@ class PlainspokenKeyboard : InputMethodService(), DictationView, TextInserter {
         hideAction()
         when {
             privateField -> setStatus("Voice typing is off in password fields", palette.muted)
-            !services.hasApiKey() -> {
+            !services.canTranscribe() -> {
                 setStatus("Add a key for your speech service in the Plainspoken app to start.", palette.text)
                 pendingAction = UserAction.OPEN_SETTINGS
                 action?.let {

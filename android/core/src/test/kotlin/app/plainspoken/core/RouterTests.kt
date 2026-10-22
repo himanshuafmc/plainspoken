@@ -11,6 +11,7 @@ import app.plainspoken.core.settings.TranscriptionMode
 import app.plainspoken.core.transcription.CleanerFactory
 import app.plainspoken.core.transcription.CleanupRequest
 import app.plainspoken.core.transcription.DictationStat
+import app.plainspoken.core.transcription.OfflineTranscriber
 import app.plainspoken.core.transcription.ServiceHealth
 import app.plainspoken.core.transcription.SnippetExpander
 import app.plainspoken.core.transcription.TextCleaner
@@ -56,6 +57,8 @@ class RouterTests {
         cleaner: TextCleaner? = null,
         compressor: AudioCompressor? = null,
         health: ServiceHealth = ServiceHealth(),
+        offline: OfflineTranscriber? = null,
+        online: Boolean = true,
     ) = TranscriptionService(
         engineFactory = { service, _, _ ->
             object : TranscriptionEngine {
@@ -78,7 +81,62 @@ class RouterTests {
         compressor = compressor,
         workDispatcher = Dispatchers.Default,
         health = health,
+        offlineTranscriber = offline,
+        isOnline = { online },
+        offlineAfter = Duration.ofMillis(150),
     )
+
+    private class FakeOffline(val text: String = "um offline words here", val ready: Boolean = true) : OfflineTranscriber {
+        var calls = 0
+
+        override fun isReady(settings: PlainspokenSettings) = ready
+
+        override suspend fun transcribe(request: TranscriptionRequest): String {
+            calls++
+            return text
+        }
+    }
+
+    @Test
+    fun `offline is used at once without a usable service or internet`() = runBlocking {
+        val offline = FakeOffline()
+        val noKeys = router(mapOf(SpeechService.SARVAM to Script("Sarvam text.")), keys = emptySet(), offline = offline)
+        val out = noKeys.transcribe(request(), settings(SpeechService.SARVAM), null)
+        assertTrue(out.offline)
+        assertEquals("offline words here", out.text.trim().lowercase())
+        val noInternet = router(mapOf(SpeechService.SARVAM to Script("Sarvam text.")), offline = offline, online = false)
+        assertTrue(noInternet.transcribe(request(), settings(SpeechService.SARVAM), null).offline)
+        assertTrue(calls.isEmpty())
+        assertEquals(2, offline.calls)
+        assertTrue(stats.isEmpty()) // offline text isn't counted against a service
+    }
+
+    @Test
+    fun `offline takes over when every service fails or none answers in time`() = runBlocking {
+        val failing = router(mapOf(SpeechService.SARVAM to Script(error = TranscriptionErrorKind.NETWORK)), offline = FakeOffline())
+        assertTrue(failing.transcribe(request(), settings(SpeechService.SARVAM), null).offline)
+        val slow = router(mapOf(SpeechService.SARVAM to Script("Late.", delayMs = 3000)), offline = FakeOffline())
+        val started = System.nanoTime()
+        assertTrue(slow.transcribe(request(), settings(SpeechService.SARVAM), null).offline)
+        val waited = (System.nanoTime() - started) / 1_000_000
+        assertTrue(waited < 2000, "waited $waited ms")
+    }
+
+    @Test
+    fun `a service that answers in time wins and offline never runs`() = runBlocking {
+        val offline = FakeOffline()
+        val out = router(mapOf(SpeechService.SARVAM to Script("Sarvam text.")), offline = offline).transcribe(request(), settings(SpeechService.SARVAM), null)
+        assertFalse(out.offline)
+        assertEquals("Sarvam text.", out.text)
+        assertEquals(0, offline.calls)
+    }
+
+    @Test
+    fun `without a ready offline model nothing changes`() = runBlocking {
+        val r = router(mapOf(SpeechService.SARVAM to Script("x")), keys = emptySet(), offline = FakeOffline(ready = false))
+        val e = assertFailsWith<TranscriptionException> { r.transcribe(request(), settings(SpeechService.SARVAM), null) }
+        assertEquals(TranscriptionErrorKind.NO_KEY, e.kind)
+    }
 
     @Test
     fun `the main service is used when it works`() = runBlocking {

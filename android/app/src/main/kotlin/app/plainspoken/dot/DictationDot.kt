@@ -127,7 +127,7 @@ class DictationDot : AccessibilityService(), DictationView, TextInserter {
         recorder = AndroidRecorder(this, services.log)
         controller = DictationController(
             settings = services::settings,
-            hasApiKey = services::hasApiKey,
+            hasApiKey = services::canTranscribe,
             recorder = recorder,
             transcriber = services.transcriber,
             inserter = this,

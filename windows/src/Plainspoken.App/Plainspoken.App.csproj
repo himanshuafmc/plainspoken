@@ -20,10 +20,26 @@
   <ItemGroup>
     <!-- Microphone capture (WASAPI). Pinned to the mature 2.x line; see docs/DECISIONS.md. -->
     <PackageReference Include="NAudio.Wasapi" Version="2.4.0" />
+    <!-- Offline fallback: whisper.cpp through Whisper.net (both MIT); the CPU runtime has the native libraries. -->
+    <PackageReference Include="Whisper.net" Version="1.9.1" />
+    <PackageReference Include="Whisper.net.Runtime" Version="1.9.1" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\Plainspoken.Core\Plainspoken.Core.csproj" />
   </ItemGroup>
+  <!--
+    Whisper.net looks for its native libraries in runtimes\win-x64 next to the exe, so they stay outside the single-file
+    bundle; it brings them for every Windows CPU, and the x64 app needs only the x64 ones.
+  -->
+  <Target Name="PlaceWhisperLibraries" AfterTargets="ComputeResolvedFilesToPublishList">
+    <ItemGroup>
+      <ResolvedFileToPublish Remove="@(ResolvedFileToPublish)"
+          Condition="$([System.String]::new('%(ResolvedFileToPublish.RelativePath)').Contains('win-arm64')) or $([System.String]::new('%(ResolvedFileToPublish.RelativePath)').Contains('win-x86'))" />
+      <ResolvedFileToPublish Condition="$([System.String]::new('%(ResolvedFileToPublish.RelativePath)').StartsWith('runtimes'))">
+        <ExcludeFromSingleFile>true</ExcludeFromSingleFile>
+      </ResolvedFileToPublish>
+    </ItemGroup>
+  </Target>
   <ItemGroup>
     <EmbeddedResource Include="..\..\..\shared\vocabulary.default.txt" LogicalName="Plainspoken.vocabulary.default.txt" />
   </ItemGroup>
