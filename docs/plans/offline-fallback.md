@@ -55,4 +55,9 @@ Hindi-script setting is Roman. Document that offline Hinglish is weaker.
 ## Progress
 
 - [x] Plan agreed; branch restarted from `main` after 0.5.0.
-- [ ] Step 1 · [ ] Step 2 · [ ] Step 3 · [ ] Step 4 · [ ] Step 5
+- [x] Step 1a: router rules in both cores (`IOfflineTranscriber` / `OfflineTranscriber`, `OfflineAfter` 6 s, no internet /
+  no usable service / all failed → offline; offline skips clean-up and stats; outcome marked `Offline`), with tests
+  (Windows 261, Android 121 passing).
+- [ ] Step 1b: dictation controllers record and transcribe with no key when offline is ready (today `hasKey` blocks
+  recording); "Typed offline" note and History mark; a real network check passed in by each app.
+- [ ] Step 2 · [ ] Step 3 · [ ] Step 4 · [ ] Step 5

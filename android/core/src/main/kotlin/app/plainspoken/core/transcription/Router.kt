@@ -13,9 +13,12 @@ import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.async
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.supervisorScope
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeoutOrNull
 import okhttp3.OkHttpClient
@@ -28,7 +31,19 @@ import java.util.concurrent.atomic.AtomicLong
 import kotlin.coroutines.cancellation.CancellationException
 
 /** The finished text, which service heard it, and whether the clean-up step tidied it (null = not cleaned). */
-data class TranscriptionOutcome(val text: String, val service: SpeechService, val cleanedBy: String? = null)
+/** [offline]: the text came from the model on this device ([OfflineTranscriber]). */
+data class TranscriptionOutcome(val text: String, val service: SpeechService, val cleanedBy: String? = null, val offline: Boolean = false)
+
+/**
+ * Transcription on this device, the last resort: used when there is no internet, no usable service or every service
+ * failed, and alongside the services when none has answered within [TranscriptionService.offlineAfter].
+ */
+interface OfflineTranscriber {
+    /** True when offline fallback is on and its model is on this device. */
+    fun isReady(settings: PlainspokenSettings): Boolean
+
+    suspend fun transcribe(request: TranscriptionRequest): String
+}
 
 /** Turns a recording into finished text: the speech service(s), then clean-up and snippets. Used by the dictation controller. */
 interface Transcriber {
@@ -123,6 +138,10 @@ class TranscriptionService(
     private val background: CoroutineScope = BackgroundScope,
     private val now: () -> Instant = { Instant.now() },
     val health: ServiceHealth = ServiceHealth(),
+    private val offlineTranscriber: OfflineTranscriber? = null,
+    private val isOnline: () -> Boolean = { true },
+    /** How long the services get before offline transcription starts as well. */
+    val offlineAfter: Duration = Duration.ofSeconds(6),
 ) : Transcriber {
     private val lastWarmUp = AtomicLong(0)
 
@@ -150,6 +169,14 @@ class TranscriptionService(
     override suspend fun transcribe(request: TranscriptionRequest, settings: PlainspokenSettings, status: ((String) -> Unit)?): TranscriptionOutcome {
         val order = usableServices(settings)
         val first = settings.transcription.orderedServices().first()
+        val offline = offlineTranscriber?.takeIf { it.isReady(settings) }
+        if (offline != null && (order.isEmpty() || !isOnline())) {
+            log.info(if (order.isEmpty()) "transcribe: no usable service; offline" else "transcribe: no internet; offline")
+            val started = System.nanoTime()
+            val text = offline.transcribe(request)
+            return finishText(text, order.firstOrNull() ?: first, request, settings, status, elapsed(started), streamed = false, usedBackup = false, hedged = false, offline = true)
+        }
+
         if (order.isEmpty()) throw TranscriptionException(TranscriptionErrorKind.NO_KEY, "No key for any chosen service.", service = first)
         log.info(
             "transcribe: services=${order.joinToString(",") { it.id }} wav=${request.wav.size} bytes " +
@@ -159,14 +186,17 @@ class TranscriptionService(
         val prepared = compressIfUseful(request, settings, order)
         val started = System.nanoTime()
         val heard = try {
-            listen(prepared, settings, order, status)
+            if (offline == null) listen(prepared, settings, order, status) else listenOrOffline(prepared, request, settings, order, offline, status)
         } catch (e: TranscriptionException) {
             stats?.record(DictationStat(now(), e.service ?: order.first(), request.durationSeconds, elapsed(started), 0, ok = false, errorKind = e.kind.name))
             throw e
         }
 
         val listenMs = elapsed(started)
-        return finishText(heard.text, heard.service, request, settings, status, listenMs, streamed = false, usedBackup = heard.service != order.first(), hedged = heard.hedged)
+        return finishText(
+            heard.text, heard.service, request, settings, status, listenMs,
+            streamed = false, usedBackup = heard.service != order.first(), hedged = heard.hedged, offline = heard.offline,
+        )
     }
 
     override suspend fun finish(
@@ -178,7 +208,49 @@ class TranscriptionService(
         listenMillis: Long,
     ): TranscriptionOutcome = finishText(raw, service, request, settings, status, listenMillis, streamed = true, usedBackup = false, hedged = false)
 
-    private class Heard(val text: String, val service: SpeechService, val hedged: Boolean)
+    private class Heard(val text: String, val service: SpeechService, val hedged: Boolean, val offline: Boolean = false)
+
+    /**
+     * The services' text; offline transcription starts as soon as they have all failed, or alongside them once
+     * [offlineAfter] has passed, and the first text wins. If offline fails too, the services' error stands. Offline runs
+     * outside this scope, so a service that wins doesn't wait for the model to finish.
+     */
+    private suspend fun listenOrOffline(
+        prepared: TranscriptionRequest,
+        original: TranscriptionRequest,
+        settings: PlainspokenSettings,
+        order: List<SpeechService>,
+        offline: OfflineTranscriber,
+        status: ((String) -> Unit)?,
+    ): Heard = supervisorScope {
+        val online = async { listen(prepared, settings, order, status) }
+        withTimeoutOrNull(offlineAfter.toMillis()) { runCatching { online.await() } }?.getOrNull()?.let { return@supervisorScope it }
+        ensureActive()
+        log.info(if (online.isCompleted) "transcribe: every service failed; offline" else "transcribe: no answer yet; offline as well")
+        status?.invoke("Transcribing on this device…")
+        val local = background.async(workDispatcher) { Heard(offline.transcribe(original), order.first(), hedged = false, offline = true) }
+        val results = Channel<Pair<Boolean, Result<Heard>>>(2) // (from offline, result)
+        val racers = buildList {
+            add(launch { results.send(true to runCatching { local.await() }) })
+            if (!online.isCompleted) add(launch { results.send(false to runCatching { online.await() }) })
+        }
+
+        repeat(racers.size) {
+            val (fromOffline, result) = results.receive()
+            result.getOrNull()?.let { heard ->
+                local.cancel()
+                online.cancel()
+                racers.forEach { it.cancel() }
+                return@supervisorScope heard
+            }
+
+            if (fromOffline) log.warn("offline: failed (${result.exceptionOrNull()?.javaClass?.simpleName})")
+        }
+
+        ensureActive()
+        online.await() // throws the services' error
+        throw TranscriptionException(TranscriptionErrorKind.UNEXPECTED_RESPONSE, "offline: no text", service = order.first())
+    }
 
     private sealed class Attempt(val service: SpeechService) {
         class Done(service: SpeechService, val text: String) : Attempt(service)
@@ -264,11 +336,13 @@ class TranscriptionService(
         streamed: Boolean,
         usedBackup: Boolean,
         hedged: Boolean,
+        offline: Boolean = false,
     ): TranscriptionOutcome {
         val started = System.nanoTime()
         var text = raw.trim()
         var cleanedBy: String? = null
-        if (shouldClean(settings, service, text)) {
+        // Offline text stays on the device: no clean-up service, only the local filler filter.
+        if (!offline && shouldClean(settings, service, text)) {
             val cleaner = cleaners?.create(settings)
             if (cleaner != null) {
                 status?.invoke("Tidying up…")
@@ -296,8 +370,11 @@ class TranscriptionService(
         text = SnippetExpander.expand(text, settings.snippets)
         val cleanupMs = elapsed(started)
         if (cleanedBy != null) log.info("cleanup: $cleanedBy in $cleanupMs ms")
-        stats?.record(DictationStat(now(), service, request.durationSeconds, listenMillis, cleanupMs, ok = true, streamed = streamed, usedBackup = usedBackup, hedged = hedged, cleanedBy = cleanedBy))
-        return TranscriptionOutcome(text, service, cleanedBy)
+        if (!offline) {
+            stats?.record(DictationStat(now(), service, request.durationSeconds, listenMillis, cleanupMs, ok = true, streamed = streamed, usedBackup = usedBackup, hedged = hedged, cleanedBy = cleanedBy))
+        }
+
+        return TranscriptionOutcome(text, service, cleanedBy, offline)
     }
 
     private fun shouldClean(settings: PlainspokenSettings, service: SpeechService, raw: String): Boolean {
