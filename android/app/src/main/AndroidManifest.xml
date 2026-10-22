@@ -3,6 +3,8 @@
 
     <uses-permission android:name="android.permission.RECORD_AUDIO" />
     <uses-permission android:name="android.permission.INTERNET" />
+    <!-- To tell "no internet" apart from a slow service, for the offline fallback. -->
+    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
 
     <!-- No backup: the key is encrypted with a key that never leaves this phone, and history is private. -->
     <application

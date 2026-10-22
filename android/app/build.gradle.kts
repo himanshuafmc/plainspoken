@@ -23,6 +23,25 @@ android {
         targetSdk = 35
         versionCode = versionParts[0] * 10000 + versionParts[1] * 100 + versionParts[2]
         versionName = appVersion
+
+        // The offline fallback's whisper.cpp engine (src/main/cpp). 64-bit ARM is what phones run; 32-bit ARM and
+        // x86_64 (emulators) are built too so the APK still installs there.
+        ndk {
+            abiFilters += listOf("arm64-v8a", "armeabi-v7a", "x86_64")
+        }
+        externalNativeBuild {
+            cmake {
+                // Several native libraries share one C++ runtime.
+                arguments += listOf("-DANDROID_STL=c++_shared")
+            }
+        }
+    }
+
+    externalNativeBuild {
+        cmake {
+            path = file("src/main/cpp/CMakeLists.txt")
+            version = "3.22.1"
+        }
     }
 
     // Two editions of the same app (same package, same key, so either replaces the other with settings kept):
@@ -68,6 +87,10 @@ android {
     }
 
     packaging {
+        // Native libraries are unpacked on install, so whisper.cpp can find its CPU backends in the app's lib folder.
+        jniLibs {
+            useLegacyPackaging = true
+        }
         resources {
             excludes += setOf("META-INF/*.kotlin_module", "META-INF/versions/**", "DebugProbesKt.bin", "kotlin/**.kotlin_builtins")
         }

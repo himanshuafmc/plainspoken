@@ -6,9 +6,12 @@ import android.content.Intent
 import android.net.Uri
 import android.os.Bundle
 import android.view.View
+import android.widget.Button
 import android.widget.LinearLayout
+import android.widget.TextView
 import android.widget.Toast
 import app.plainspoken.core.AppInfo
+import app.plainspoken.core.offline.OfflineModels
 import app.plainspoken.core.settings.CleanupProvider
 import app.plainspoken.core.settings.CleanupSettings
 import app.plainspoken.core.settings.HindiScript
@@ -37,6 +40,10 @@ class SettingsActivity : Activity() {
     private lateinit var services: Services
     private lateinit var ui: Ui
     private lateinit var content: LinearLayout
+    private var offlineStatus: TextView? = null
+    private var offlineDownload: Button? = null
+    private var offlineDelete: Button? = null
+    private val downloadListener: () -> Unit = { runOnUiThread { refreshOffline() } }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -45,6 +52,7 @@ class SettingsActivity : Activity() {
         val (root, column) = ui.screen(this, "Settings", showBack = true)
         content = column
         setContentView(root)
+        services.modelDownload.addListener(downloadListener)
         render()
     }
 
@@ -54,6 +62,7 @@ class SettingsActivity : Activity() {
     }
 
     override fun onDestroy() {
+        services.modelDownload.removeListener(downloadListener)
         scope.cancel()
         super.onDestroy()
     }
@@ -66,6 +75,7 @@ class SettingsActivity : Activity() {
         servicesSection()
         cleanupSection()
         speakingSection()
+        offlineSection()
         vocabularySection()
         snippetsSection()
         optionsSection()
@@ -381,6 +391,55 @@ class SettingsActivity : Activity() {
         ui.choice(card, listOf(60 to "1 minute", 180 to "3 minutes", 300 to "5 minutes", 600 to "10 minutes", 1200 to "20 minutes"), nearest(s().recording.maxSeconds)) { v ->
             services.update { it.recording.maxSeconds = v }
         }
+    }
+
+    // --- Offline fallback ---
+
+    private fun offlineSection() {
+        val card = ui.card(content)
+        ui.heading(card, "Offline fallback")
+        ui.text(card, "Your speech services are always tried first. When there's no internet or no key, when every service fails, or " +
+            "when none has answered after 6 seconds, Plainspoken transcribes on this phone instead. The model is downloaded once " +
+            "(Wi-Fi is best); offline text isn't tidied up, and Hindi may come out in Devanagari.", muted = true, sizeSp = 13f)
+        if (!services.offline.supported()) {
+            ui.text(card, "Not available on this phone.", sizeSp = 14f)
+            return
+        }
+
+        ui.toggle(card, "Transcribe on this phone when needed", null, s().local.offlineEnabled) { v -> services.update { it.local.offlineEnabled = v } }
+        ui.choice(card, OfflineModels.phone.map { it.id to it.label }, services.offline.model(s()).id) { v ->
+            services.update { it.local.offlineModel = v }
+            refreshOffline()
+        }
+
+        offlineStatus = ui.text(card, "", muted = true, sizeSp = 13f)
+        offlineDownload = ui.button(card, "Download") {
+            val download = services.modelDownload
+            if (download.running) download.cancel() else download.start(services.offline.model(s()))
+        }
+        offlineDelete = ui.button(card, "Delete the model", primary = false) {
+            services.models.delete(services.offline.model(s()))
+            refreshOffline()
+        }
+        refreshOffline()
+    }
+
+    private fun refreshOffline() {
+        val status = offlineStatus ?: return
+        val model = services.offline.model(s())
+        val download = services.modelDownload
+        val progress = download.progress
+        val downloaded = services.models.isDownloaded(model)
+        status.text = when {
+            progress != null -> "Downloading… ${progress.first * 100 / maxOf(1L, progress.second)} % of ${progress.second / 1_000_000} MB"
+            downloaded -> "Downloaded — ready to use."
+            else -> download.problem ?: "Not downloaded yet."
+        }
+        offlineDownload?.apply {
+            text = if (download.running) "Cancel" else "Download"
+            isEnabled = download.running || !downloaded
+        }
+        offlineDelete?.isEnabled = downloaded && !download.running
     }
 
     private fun nearest(seconds: Int): Int = listOf(60, 180, 300, 600, 1200).minBy { kotlin.math.abs(it - seconds) }
